@@ -4,12 +4,10 @@ import tensorflow as tf
 from .utils import compute_iou
 
 
-class Anchors():
+class Anchors:
     """Anchor boxes generator."""
 
-    def __init__(self,
-                 aspect_ratios=[0.5, 1, 2],
-                 scales=[0, 1/3, 2/3]):
+    def __init__(self, aspect_ratios=[0.5, 1, 2], scales=[0, 1 / 3, 2 / 3]):
         """Initialize anchors generator.
 
         Args:
@@ -57,8 +55,8 @@ class Anchors():
             level: an integer from range [3, 7] representing level
                 of feature map.
         """
-        rx = tf.range(feature_width, dtype=tf.float32) + .5
-        ry = tf.range(feature_height, dtype=tf.float32) + .5
+        rx = tf.range(feature_width, dtype=tf.float32) + 0.5
+        ry = tf.range(feature_height, dtype=tf.float32) + 0.5
         xs = tf.tile(tf.reshape(rx, [1, -1]), [tf.shape(ry)[0], 1])
         ys = tf.tile(tf.reshape(ry, [-1, 1]), [1, tf.shape(rx)[0]])
 
@@ -67,7 +65,9 @@ class Anchors():
         centers = tf.tile(centers, [1, self._num_anchors, 1])
         centers = tf.reshape(centers, [-1, 2])
 
-        dims = tf.tile(self._anchor_dims[level - 3], [feature_height * feature_width, 1])
+        dims = tf.tile(
+            self._anchor_dims[level - 3], [feature_height * feature_width, 1]
+        )
         return tf.concat([centers, dims], axis=-1)
 
     def get_anchors(self, image_height, image_width):
@@ -81,24 +81,23 @@ class Anchors():
             self._get_anchors(
                 tf.math.ceil(image_height / 2**i),
                 tf.math.ceil(image_width / 2**i),
-                i
-            ) for i in range(3, 8)
+                i,
+            )
+            for i in range(3, 8)
         ]
         return tf.concat(anchors, axis=0)
 
 
-class SamplesEncoder():
+class SamplesEncoder:
     """Enchoder of training batches."""
 
-    def __init__(self,
-                 aspect_ratios=[0.5, 1, 2],
-                 scales=[0, 1/3, 2/3]):
+    def __init__(self, aspect_ratios=[0.5, 1, 2], scales=[0, 1 / 3, 2 / 3]):
         self._anchors = Anchors()
-        self._box_variance = tf.cast(
-            [0.1, 0.1, 0.2, 0.2], tf.float32
-        )
+        self._box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
 
-    def _match_anchor_boxes(self, anchor_boxes, gt_boxes, match_iou=0.5, ignore_iou=0.4):
+    def _match_anchor_boxes(
+        self, anchor_boxes, gt_boxes, match_iou=0.5, ignore_iou=0.4
+    ):
         """Assign ground truth boxes to all anchor boxes."""
 
         iou = compute_iou(anchor_boxes, gt_boxes)

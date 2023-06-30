@@ -8,31 +8,49 @@ from model.anchors import Anchors
 from model.utils import to_corners, resize_and_pad
 
 
-parser = argparse.ArgumentParser(description='Detect objects on image.')
-parser.add_argument('-n', metavar='NAME', default='efficientdet_d0',
-                    required=True, help='Name of model to use')
-parser.add_argument('-w', metavar='WEIGHTS', required=True, 
-                    help='Path to model weights')
-parser.add_argument('-i', metavar='IMAGE', required=True, 
-                    help='Image to process')
-parser.add_argument('-c', metavar='CLASSES', default=80, type=int,
-                    help='Number of classes pretrained model predicts.')
-parser.add_argument('-a', metavar='ANCHORS', default=9, type=int,
-                    help='Number of anchor boxes pretrained model predicts.')
-parser.add_argument('-o', metavar='OUTPUT_NAME', default='output.png',
-                    help='Name of result image')
+parser = argparse.ArgumentParser(description="Detect objects on image.")
+parser.add_argument(
+    "-n",
+    metavar="NAME",
+    default="efficientdet_d0",
+    required=True,
+    help="Name of model to use",
+)
+parser.add_argument(
+    "-w", metavar="WEIGHTS", required=True, help="Path to model weights"
+)
+parser.add_argument("-i", metavar="IMAGE", required=True, help="Image to process")
+parser.add_argument(
+    "-c",
+    metavar="CLASSES",
+    default=80,
+    type=int,
+    help="Number of classes pretrained model predicts.",
+)
+parser.add_argument(
+    "-a",
+    metavar="ANCHORS",
+    default=9,
+    type=int,
+    help="Number of anchor boxes pretrained model predicts.",
+)
+parser.add_argument(
+    "-o", metavar="OUTPUT_NAME", default="output.png", help="Name of result image"
+)
 
 
-def make_prediction(image,
-                    max_output_size_per_class=100,
-                    max_total_size=100,
-                    iot_threshold=0.7,
-                    score_threshold=0.1):
-    box_variance = tf.cast(
-        [0.1, 0.1, 0.2, 0.2], tf.float32
+def make_prediction(
+    image,
+    max_output_size_per_class=100,
+    max_total_size=100,
+    iot_threshold=0.7,
+    score_threshold=0.1,
+):
+    box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
+
+    padded_image, new_shape, scale = resize_and_pad(
+        image, target_side=256.0, scale_jitter=None
     )
-    
-    padded_image, new_shape, scale = resize_and_pad(image, scale_jitter=None)
     anchor_boxes = Anchors().get_anchors(padded_image.shape[0], padded_image.shape[1])
 
     preds = model.predict(tf.expand_dims(padded_image, axis=0))
@@ -41,9 +59,9 @@ def make_prediction(image,
     boxes = tf.concat(
         [
             boxes[..., :2] * anchor_boxes[..., 2:] + anchor_boxes[..., :2],
-            tf.exp(boxes[..., 2:]) * anchor_boxes[..., 2:]
+            tf.exp(boxes[..., 2:]) * anchor_boxes[..., 2:],
         ],
-        axis=-1
+        axis=-1,
     )
     boxes = to_corners(boxes)
     classes = tf.nn.sigmoid(preds[..., 4:])
@@ -55,12 +73,12 @@ def make_prediction(image,
         max_total_size=max_total_size,
         iou_threshold=iot_threshold,
         score_threshold=score_threshold,
-        clip_boxes=False
+        clip_boxes=False,
     )
 
     valid_dets = nms.valid_detections[0]
 
-    plt.axis('off')
+    plt.axis("off")
     plt.imshow(image)
     ax = plt.gca()
 
@@ -73,10 +91,14 @@ def make_prediction(image,
         )
         ax.add_patch(patch)
         ax.text(
-            x_min, y_min, f'Class {int(nms.nmsed_classes[0, i])}: {nms.nmsed_scores[0, i]}',
-            bbox={"facecolor": [0, 1, 0], "alpha": 0.4}, clip_box=ax.clipbox,
-            clip_on=True
+            x_min,
+            y_min,
+            f"Class {int(nms.nmsed_classes[0, i])}: {nms.nmsed_scores[0, i]}",
+            bbox={"facecolor": [0, 1, 0], "alpha": 0.4},
+            clip_box=ax.clipbox,
+            clip_on=True,
         )
+        print("x: {:d}, y1: {:d}, w: {:d}, h: {:d}".format(x_min, y_min, w, h))
 
     plt.savefig(args.o)
 

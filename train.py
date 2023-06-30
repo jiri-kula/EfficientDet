@@ -1,6 +1,8 @@
+# %%
 """Script for creating and training a new model."""
 
 import tensorflow as tf
+import numpy as np
 from model.efficientdet import get_efficientdet
 from model.losses import EffDetLoss
 from model.anchors import SamplesEncoder
@@ -8,10 +10,10 @@ from dataset import MyDataset
 
 MODEL_NAME = "efficientdet_d0"
 
-NUM_CLASSES = 80
+NUM_CLASSES = 2
 
-EPOCHS = 300
-BATCH_SIZE = 2
+EPOCHS = 10
+BATCH_SIZE = 8
 
 INITIAL_LR = 0.01
 DECAY_STEPS = 433 * 155
@@ -19,21 +21,10 @@ init_lr = 0.001
 
 LR = tf.keras.experimental.CosineDecay(init_lr, DECAY_STEPS, 1e-3)
 
-DATA_PATH = "/home/jiri/keypoint_rcnn_training_pytorch/rv12_COCO_dataset/train"
+# DATA_PATH = "/home/jiri/keypoint_rcnn_training_pytorch/rv12_COCO_dataset/train"
+DATA_PATH = "/mnt/d/dev/keypoints/rv12_dataset_v2"
+
 CHECKPOINT_PATH = "/tmp/checkpoints/folder"
-
-# TODO: LOAD YOUR TRAINING DATA
-# TRAINING DATA SHOUD BE IN FORMAT (Image, Bounding boxes, Class labels)
-# train_data = '/path/to/training/data'
-train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-
-samples_encoder = SamplesEncoder()
-autotune = tf.data.experimental.AUTOTUNE
-
-# train_data = train_data.shuffle(5000)
-# train_data = train_data.padded_batch(BATCH_SIZE, padding_values=(0.0, 1e-8, -1.0))
-# train_data = train_data.map(samples_encoder.encode_batch, num_parallel_calls=autotune)
-# train_data = train_data.prefetch(autotune)
 
 model = get_efficientdet(MODEL_NAME, num_classes=NUM_CLASSES)
 loss = EffDetLoss(num_classes=NUM_CLASSES)
@@ -43,24 +34,10 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     CHECKPOINT_PATH, save_weights_only=True
 )
 
-
-def norm(y_true, y_pred):
-    loss = tf.norm(y_pred - y_true, axis=1)
-
-    # reduction
-    red = tf.reduce_mean(loss)
-
-    # tf.print('y_true:', y_true)
-    # tf.print('y_pred:', y_pred)
-    # tf.print('d_norm: ', loss)
-    # tf.print('reduce: ', red)
-    return red
-
-
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
-    loss=EffDetLoss(num_classes=NUM_CLASSES),
-    # metrics=[tf.keras.metrics.BinaryAccuracy(), tf.keras.metrics.FalseNegatives()],
+    optimizer=tf.keras.optimizers.Adam(),
+    loss=loss,
+    run_eagerly=False,
 )
 
 # model.build((4, 256, 256, 3))
@@ -74,4 +51,26 @@ model.compile(
 #     rankdir="TB",
 # )
 
-model.fit(train_data, epochs=EPOCHS, use_multiprocessing=False)
+# %%
+train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
+
+# %%
+
+history = model.fit(train_data, epochs=EPOCHS, validation_data=train_data)
+
+# %%
+images, gt = train_data.__getitem__(0)
+
+model.evaluate(images, gt)
+p = model.predict(np.array(images[0]))
+
+# %% prediction
+pred = model(images)
+
+loss = EffDetLoss(num_classes=NUM_CLASSES)
+l = loss(labels, pred)
+
+print("loss: {:f}".format(l))
+# %%
+
+model(image) == model(image, training=True)

@@ -5,10 +5,36 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Current File",
+      "name": "train",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/train.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "test_dataset",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/test_dataset.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "inference",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/inference.py",
+      "args": [
+        "-w",
+        "model_weights",
+        "-n",
+        "efficientdet_d0",
+        "-i",
+        "/mnt/d/dev/keypoints/rv12_dataset_v2/file_2586.png",
+        "-c",
+        "2"
+      ],
       "console": "integratedTerminal",
       "justMyCode": false
     }

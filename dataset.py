@@ -316,11 +316,11 @@ class Box:
 
 @dataclass
 class Sample:
-    image_path: str
+    # image_path: str
     boxes: list
 
     def __init__(self, row):
-        self.image_path = row[IDX.PATH]
+        # self.image_path = row[IDX.PATH]
         self.boxes = []
 
         self.boxes.append(Box(row))
@@ -331,50 +331,51 @@ class CSVDataset(keras.utils.Sequence):
         self.batch_size = batch_size
         self.se = SamplesEncoder()
 
-        self.all_paths = []
         with open(meta_path, "r") as infile:
             reader = csv.reader(infile, lineterminator="\n", quoting=csv.QUOTE_NONE)
-            print("Loading all paths")
+
+            num_rows = 0
             for row in reader:
-                self.all_paths.append(row)
+                num_rows += 1
 
-            print("Loading unique paths")
-            self.unique_paths = unique_paths(reader, infile)
+            self.samples = dict()
 
-        print("CSVDataset initialised")
+            bar = Bar(
+                "Build cache",
+                max=num_rows,
+                suffix="%(percent).1f%% - %(eta)ds",
+            )
 
-        self.samples = []
+            infile.seek(0)
+            for row in reader:
+                # samples = [_ for _ in self.samples if _.image_path == row[IDX.PATH]]
+                key = row[IDX.PATH]
+                sample = self.samples.get(key)
+                if sample is None:
+                    self.samples[key] = Sample(row)
+                else:
+                    sample.boxes.append(Box(row))
+                bar.next()
+            bar.finish()
 
-        bar = Bar(
-            "Build cache", max=len(self.all_paths), suffix="%(percent).1f%% - %(eta)ds"
-        )
-
-        for row in self.all_paths:
-            samples = [_ for _ in self.samples if _.image_path == row[IDX.PATH]]
-            if len(samples) == 0:
-                self.samples.append(Sample(row))
-            else:
-                sample = samples[0]
-                sample.boxes.append(Box(row))
-            bar.next()
-        bar.finish()
+            self.samples = list(self.samples.items())
 
     def __len__(self):
         return len(self.samples) // self.batch_size
 
     def __getitem__(self, index):
-        return self.batch[index]
-
-    def load_batch(self, index):
         train_images = []
         lbl_boxes = []
         lbl_classes = []
 
         idx_from = index * self.batch_size
-        idx_to = min(idx_from + self.batch_size, len(self.unique_paths))
+        idx_to = min(idx_from + self.batch_size, len(self.samples))
 
         for idx in range(idx_from, idx_to):
-            image_path = self.unique_paths[idx]
+            sample = self.samples[idx]
+
+            image_path = sample[0]
+            boxes = sample[1].boxes
 
             Image = tf.keras.utils.load_img(image_path)
             Image = Image.resize((256, 256))
@@ -385,24 +386,15 @@ class CSVDataset(keras.utils.Sequence):
             train_images.append(Image)
 
             # boxes
-            my_rows = [_ for _ in self.all_paths if _[IDX.PATH] == image_path]
-
-            num_boxes = len(my_rows)
+            num_boxes = len(boxes)
             BoundingBoxes = np.zeros((num_boxes, 4), dtype=np.float32)
             Classes = np.zeros((num_boxes,), dtype=np.float32)
 
-            for iobj, obj in enumerate(my_rows):
-                x1 = float(obj[IDX.X1]) * IMG_OUT_SIZE
-                x2 = float(obj[IDX.X2]) * IMG_OUT_SIZE
-                y1 = float(obj[IDX.Y1]) * IMG_OUT_SIZE
-                y2 = float(obj[IDX.Y2]) * IMG_OUT_SIZE
-                class_name = obj[IDX.OBJECT]
-
-                if x1 > x2:
-                    x1, x2 = x2, x1
-
-                if y1 > y2:
-                    y1, y2 = y2, y1
+            for iobj, obj in enumerate(boxes):
+                x1 = obj.x1 * IMG_OUT_SIZE
+                x2 = obj.x2 * IMG_OUT_SIZE
+                y1 = obj.y1 * IMG_OUT_SIZE
+                y2 = obj.y2 * IMG_OUT_SIZE
 
                 if not (x2 > x1 and y2 > y1):
                     raise ValueError(
@@ -417,7 +409,7 @@ class CSVDataset(keras.utils.Sequence):
                 box = np.array([x1 - w / 2.0, y1 - h / 2.0, w, h], dtype=np.float32)
 
                 BoundingBoxes[iobj] = box
-                Classes[iobj] = labels_map[class_name]
+                Classes[iobj] = float(obj.lbl)
 
             lbl_boxes.append(BoundingBoxes)
             lbl_classes.append(Classes)

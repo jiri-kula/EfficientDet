@@ -54,7 +54,6 @@ class EfficientDet(tf.keras.Model):
             name: a string representing model name.
         """
         super().__init__(name=name)
-        self.num_classes = num_classes
 
         self.backbone = get_backbone(backbone_name)
         self.backbone.trainable = False
@@ -66,6 +65,9 @@ class EfficientDet(tf.keras.Model):
             depth_multiplier=bifpn_depth_multiplier,
             pooling_strategy=bifpn_pooling_strategy,
         )
+
+        self.BiFPN.trainable = True
+
         self.class_det = ClassDetector(
             channels=channels,
             num_classes=num_classes,
@@ -97,7 +99,7 @@ class EfficientDet(tf.keras.Model):
             tmp1 = self.class_det(feature, training=training)
             tmp = tf.reshape(
                 tmp1,
-                [batch_size, -1, self.num_classes],
+                [batch_size, -1, self.class_det.num_classes],
             )
             classes.append(tmp)
             boxes.append(

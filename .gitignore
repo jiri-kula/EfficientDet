@@ -1,3 +1,4 @@
 .effdet
 model/__pycache__
 __pycache__
+.cuda

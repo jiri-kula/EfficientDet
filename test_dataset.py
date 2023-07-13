@@ -1,10 +1,12 @@
-import dataset
+from dataset import MyDataset, CSVDataset, image_mosaic
 
 DATA_PATH = "/mnt/d/dev/keypoints/rv12_dataset_v2"
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 
-ds = dataset.MyDataset(DATA_PATH, None, BATCH_SIZE)
+# ds = MyDataset(DATA_PATH, None, BATCH_SIZE)
+ds = CSVDataset("/home/jiri/EfficientDet/meta_split.csv", None, BATCH_SIZE)
 n = ds.__len__()
 
-batch = ds.__getitem__(0)
-batch = ds.__getitem__(int(n / BATCH_SIZE))
+for i in range(0, 5):
+    images, labels = ds.__getitem__(i)
+    image_mosaic(images)

@@ -10,7 +10,23 @@
       "request": "launch",
       "program": "${workspaceFolder}/train.py",
       "console": "integratedTerminal",
-      "justMyCode": false
+      "justMyCode": false,
+      "env": {
+        // "CUDA_VISIBLE_DEVICES": ""
+      }
+    },
+    {
+      "name": "profile train",
+      "type": "python",
+      "request": "launch",
+      "module": "cProfile",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "args": [
+        "-o",
+        "/tmp/tmp.prof",
+        "${workspaceFolder}/train.py"
+      ]
     },
     {
       "name": "test_dataset",
@@ -31,7 +47,7 @@
         "-n",
         "efficientdet_d0",
         "-i",
-        "/mnt/d/dev/keypoints/rv12_dataset_v2/file_2586.png",
+        "/mnt/d/dev/keypoints/rv12_dataset_v2/file_4151.png",
         "-c",
         "2"
       ],

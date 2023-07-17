@@ -329,7 +329,6 @@ class Sample:
 class CSVDataset(keras.utils.Sequence):
     def __init__(self, meta_path, aug, batch_size, train=True):
         self.batch_size = batch_size
-        self.se = SamplesEncoder()
 
         with open(meta_path, "r") as infile:
             reader = csv.reader(infile, lineterminator="\n", quoting=csv.QUOTE_NONE)
@@ -430,6 +429,8 @@ class CSVDataset(keras.utils.Sequence):
             )
 
         # train_images_aug = self.seq(images=train_images)
-        retval = self.se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes)
+        se = SamplesEncoder()
+
+        retval = se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes)
 
         return retval

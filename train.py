@@ -15,7 +15,7 @@ MODEL_NAME = "efficientdet_d0"
 NUM_CLASSES = 6
 
 EPOCHS = 40
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 
 INITIAL_LR = 0.01
 DECAY_STEPS = 433 * 155
@@ -39,7 +39,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 model.compile(
     optimizer=tf.keras.optimizers.Adam(),
     loss=loss,
-    # run_eagerly=False,
+    run_eagerly=True,
 )
 
 # model.build((4, 256, 256, 3))
@@ -54,7 +54,7 @@ model.compile(
 # )
 
 # train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-train_data = CSVDataset("/home/jiri/EfficientDet/meta_split_full.csv", None, BATCH_SIZE)
+train_data = CSVDataset("/home/jiri/EfficientDet/meta_split_test.csv", None, BATCH_SIZE)
 test_data = CSVDataset("/home/jiri/EfficientDet/meta_split_test.csv", None, BATCH_SIZE)
 
 # %%
@@ -71,6 +71,7 @@ history = model.fit(
     train_data,
     epochs=EPOCHS,
     workers=2,
+    # use_multiprocessing=True,
     validation_data=test_data,  #   , callbacks=[CustomCallback()]
 )
 

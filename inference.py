@@ -44,7 +44,7 @@ def make_prediction(
     max_output_size_per_class=100,
     max_total_size=100,
     iot_threshold=0.7,
-    score_threshold=0.1,
+    score_threshold=0.7,
 ):
     box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
 
@@ -85,7 +85,7 @@ def make_prediction(
     for i in range(valid_dets):
         x_min, y_min, x_max, y_max = nms.nmsed_boxes[0, i] / scale
         w, h = x_max - x_min, y_max - y_min
-        x_min, y_min, w, h = 75, 40, 35, 20
+        # x_min, y_min, w, h = 75, 40, 35, 20
         patch = plt.Rectangle(
             [x_min, y_min], w, h, fill=False, edgecolor=[0, 1, 0], linewidth=1
         )
@@ -98,7 +98,7 @@ def make_prediction(
             clip_box=ax.clipbox,
             clip_on=True,
         )
-        print("x: {:d}, y1: {:d}, w: {:d}, h: {:d}".format(x_min, y_min, w, h))
+        # print("x: {:d}, y1: {:d}, w: {:d}, h: {:d}".format(x_min, y_min, w, h))
 
     plt.savefig(args.o)
 

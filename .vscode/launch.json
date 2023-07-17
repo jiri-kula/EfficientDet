@@ -13,7 +13,7 @@
       "justMyCode": false,
       "env": {
         "CUDA_VISIBLE_DEVICES": ""
-      }
+      },
     },
     {
       "name": "profile train",
@@ -43,13 +43,13 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "model_weights",
+        "model_good1",
         "-n",
         "efficientdet_d0",
         "-i",
-        "/mnt/d/dev/keypoints/rv12_dataset_v2/file_4151.png",
+        "/mnt/c/Edwards/DetectionData/Dataset/zaznamy_z_vyroby/2022_12_20/rv12/montaz_5/rv12_00001898.png",
         "-c",
-        "2"
+        "6"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

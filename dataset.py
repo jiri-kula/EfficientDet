@@ -359,10 +359,19 @@ class CSVDataset(keras.utils.Sequence):
 
             self.samples = list(self.samples.items())
 
+        self.batch = None
+
     def __len__(self):
-        return len(self.samples) // self.batch_size
+        # return len(self.samples) // self.batch_size
+        return 1
 
     def __getitem__(self, index):
+        if self.batch is None:
+            self.batch = self.get_batch(0)
+        
+        return self.batch
+    
+    def get_batch(self, index):
         train_images = []
         lbl_boxes = []
         lbl_classes = []
@@ -405,7 +414,8 @@ class CSVDataset(keras.utils.Sequence):
                 w = x2 - x1
                 h = y2 - y1
 
-                box = np.array([x1 - w / 2.0, y1 - h / 2.0, w, h], dtype=np.float32)
+                # where each box is of the format [x, y, width, height]
+                box = np.array([(x1 + x2) / 2.0, (y1 + y2) / 2.0, w, h], dtype=np.float32)
 
                 BoundingBoxes[iobj] = box
                 Classes[iobj] = float(obj.lbl)

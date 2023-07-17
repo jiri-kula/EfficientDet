@@ -43,7 +43,7 @@ class BiFPNLayerNode(tf.keras.layers.Layer):
             name="node_conv",
         )
 
-        self.bn = tf.keras.layers.BatchNormalization()
+        self.bn = tf.keras.layers.Identity()
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
     def call(self, inputs, training=False):
@@ -186,7 +186,7 @@ class BiFPN(tf.keras.layers.Layer):
         ]
 
         self.bns = [
-            tf.keras.layers.BatchNormalization(name=f"bn_level_{i}") for i in range(5)
+            tf.keras.layers.Identity(name=f"bn_level_{i}") for i in range(5)
         ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
@@ -266,7 +266,7 @@ class ClassDetector(tf.keras.layers.Layer):
         ]
 
         self.bns = [
-            tf.keras.layers.BatchNormalization(name=f"bn_{i}") for i in range(depth)
+            tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
         ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
@@ -342,7 +342,7 @@ class BoxRegressor(tf.keras.layers.Layer):
         ]
 
         self.bns = [
-            tf.keras.layers.BatchNormalization(name=f"bn_{i}") for i in range(depth)
+            tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
         ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
@@ -359,10 +359,19 @@ class BoxRegressor(tf.keras.layers.Layer):
         )
 
     def call(self, inputs, training=False):
+        inputs2 = tf.identity(inputs)
+
         for i in range(self.depth):
             inputs = self.convs[i](inputs)
             inputs = self.bns[i](inputs, training=training)
             inputs = self.act(inputs)
         box_output = self.boxes(inputs)
+
+        for i in range(self.depth):
+            inputs2 = self.convs[i](inputs2)
+            inputs2 = self.bns[i](inputs2, training=False)
+            inputs2 = self.act(inputs2)
+        box_output2 = self.boxes(inputs2)
+
 
         return box_output

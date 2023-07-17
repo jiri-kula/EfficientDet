@@ -43,7 +43,7 @@ class Anchors:
             all_dims.append(tf.stack(level_dims, axis=0))
         return tf.stack(all_dims, axis=0)
 
-    @tf.function
+    # @tf.function
     def _get_anchors(self, feature_height, feature_width, level):
         """Get anchors for with given height and width on given level.
 
@@ -129,8 +129,8 @@ class SamplesEncoder:
         matched_gt_idx, positive_mask, ignore_mask = self._match_anchor_boxes(
             anchor_boxes, gt_boxes
         )
-        matched_gt_boxes = tf.gather(gt_boxes, matched_gt_idx)
-        box_target = self._compute_box_target(anchor_boxes, matched_gt_boxes)
+        matched_gt_boxes = tf.gather(gt_boxes, matched_gt_idx) # select one box from gt_boxes for each anchor
+        box_target = self._compute_box_target(anchor_boxes, matched_gt_boxes) # compute shift + scale of anchor to match 'gt box' 
 
         classes = tf.cast(classes, dtype=tf.float32)
         matched_gt_classes = tf.gather(classes, matched_gt_idx)

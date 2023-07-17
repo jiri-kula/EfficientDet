@@ -14,8 +14,8 @@ MODEL_NAME = "efficientdet_d0"
 
 NUM_CLASSES = 6
 
-EPOCHS = 40
-BATCH_SIZE = 8
+EPOCHS = 10
+BATCH_SIZE = 1
 
 INITIAL_LR = 0.01
 DECAY_STEPS = 433 * 155
@@ -57,47 +57,26 @@ model.compile(
 train_data = CSVDataset("/home/jiri/EfficientDet/meta_split_test.csv", None, BATCH_SIZE)
 test_data = CSVDataset("/home/jiri/EfficientDet/meta_split_test.csv", None, BATCH_SIZE)
 
-# %%
+
+model.build(input_shape=(BATCH_SIZE, 256, 256, 3))
+model.summary(show_trainable=True)
 
 
+model.load_weights('model_good')
 class CustomCallback(keras.callbacks.Callback):
     def on_train_batch_end(self, batch, logs=None):
         images, lbl = train_data.__getitem__(batch)
         # print(images.shape)
         image_mosaic(images)
 
-
+# %%
 history = model.fit(
     train_data,
     epochs=EPOCHS,
-    workers=2,
+    workers=1,
     # use_multiprocessing=True,
     validation_data=test_data,  #   , callbacks=[CustomCallback()]
 )
 
-# # %%
-# images, gt = train_data.__getitem__(0)
-
-# model.evaluate(images, gt)
-# p = model.predict(np.array(images[0]))
-
-# # %% prediction
-# pred = model(images)
-
-# loss = EffDetLoss(num_classes=NUM_CLASSES)
-# l = loss(labels, pred)
-
-# print("loss: {:f}".format(l))
-# # %%
-
-# model(image) == model(image, training=True)
-
-# # %%
-# images, labels = train_data.__getitem__(0)
-# boxes = labels[0]
-# classes = labels[1]
-
-# se = SamplesEncoder()
-# se.encode_batch(images, boxes, classes)
-
+model.save_weights('model_good1')
 # %%

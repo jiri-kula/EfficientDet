@@ -362,15 +362,16 @@ class CSVDataset(keras.utils.Sequence):
         self.batch = None
 
     def __len__(self):
-        # return len(self.samples) // self.batch_size
-        return 1
+        return len(self.samples) // self.batch_size
+        # return 1
 
     def __getitem__(self, index):
-        if self.batch is None:
-            self.batch = self.get_batch(0)
+        # if self.batch is None:
+        #     self.batch = self.get_batch(0)
         
-        return self.batch
-    
+        # return self.batch
+        return self.get_batch(index)
+
     def get_batch(self, index):
         train_images = []
         lbl_boxes = []
@@ -406,8 +407,8 @@ class CSVDataset(keras.utils.Sequence):
 
                 if not (x2 > x1 and y2 > y1):
                     raise ValueError(
-                        "assertion failed in {:s}: x1: {:d}, x2: {:d} and y1: {:d}, y2: {:d}".format(
-                            obj[IDX.PATH], x1, x2, y1, y2
+                        "assertion failed in {:s}: x1: {:f}, x2: {:f} and y1: {:f}, y2: {:f}".format(
+                            image_path, x1, x2, y1, y2
                         )
                     )
 
@@ -442,5 +443,7 @@ class CSVDataset(keras.utils.Sequence):
         se = SamplesEncoder()
 
         retval = se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes)
+
+        assert(retval[1].shape[0] == self.batch_size)
 
         return retval

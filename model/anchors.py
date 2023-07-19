@@ -70,6 +70,7 @@ class Anchors:
         )
         return tf.concat([centers, dims], axis=-1)
 
+    # @tf.function
     def get_anchors(self, image_height, image_width):
         """Get anchors for given height and width on all levels.
 
@@ -94,6 +95,7 @@ class SamplesEncoder:
     def __init__(self, aspect_ratios=[0.5, 1, 2], scales=[0, 1 / 3, 2 / 3]):
         self._anchors = Anchors()
         self._box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
+        self.anchor_boxes = None
 
     def _match_anchor_boxes(
         self, anchor_boxes, gt_boxes, match_iou=0.5, ignore_iou=0.4
@@ -112,7 +114,7 @@ class SamplesEncoder:
             tf.cast(ignore_mask, dtype=tf.float32),
         )
 
-    @tf.autograph.experimental.do_not_convert
+    # @tf.autograph.experimental.do_not_convert
     def _compute_box_target(self, anchor_boxes, matched_gt_boxes):
         box_target = tf.concat(
             [
@@ -125,12 +127,14 @@ class SamplesEncoder:
         return box_target
 
     def _encode_sample(self, image_shape, gt_boxes, classes):
-        anchor_boxes = self._anchors.get_anchors(image_shape[1], image_shape[2])
+        if self.anchor_boxes is None:
+            self.anchor_boxes = self._anchors.get_anchors(image_shape[1], image_shape[2])
+        
         matched_gt_idx, positive_mask, ignore_mask = self._match_anchor_boxes(
-            anchor_boxes, gt_boxes
+            self.anchor_boxes, gt_boxes
         )
         matched_gt_boxes = tf.gather(gt_boxes, matched_gt_idx) # select one box from gt_boxes for each anchor
-        box_target = self._compute_box_target(anchor_boxes, matched_gt_boxes) # compute shift + scale of anchor to match 'gt box' 
+        box_target = self._compute_box_target(self.anchor_boxes, matched_gt_boxes) # compute shift + scale of anchor to match 'gt box' 
 
         classes = tf.cast(classes, dtype=tf.float32)
         matched_gt_classes = tf.gather(classes, matched_gt_idx)

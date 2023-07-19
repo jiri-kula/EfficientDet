@@ -9,13 +9,15 @@ from model.losses import EffDetLoss
 from model.anchors import SamplesEncoder
 from dataset import MyDataset, CSVDataset, image_mosaic
 
+# gpus = tf.config.experimental.list_physical_devices('GPU')
+# tf.config.experimental.set_memory_growth(gpus[0], True)
 
 MODEL_NAME = "efficientdet_d0"
 
 NUM_CLASSES = 6
 
-EPOCHS = 10
-BATCH_SIZE = 1
+EPOCHS = 100
+BATCH_SIZE = 128
 
 INITIAL_LR = 0.01
 DECAY_STEPS = 433 * 155
@@ -39,7 +41,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 model.compile(
     optimizer=tf.keras.optimizers.Adam(),
     loss=loss,
-    run_eagerly=True,
+    run_eagerly=False,
 )
 
 # model.build((4, 256, 256, 3))
@@ -54,7 +56,7 @@ model.compile(
 # )
 
 # train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-train_data = CSVDataset("/home/jiri/EfficientDet/meta_split_test.csv", None, BATCH_SIZE)
+train_data = CSVDataset("/home/jiri/EfficientDet/meta_split_full.csv", None, BATCH_SIZE)
 test_data = CSVDataset("/home/jiri/EfficientDet/meta_split_test.csv", None, BATCH_SIZE)
 
 
@@ -62,7 +64,7 @@ model.build(input_shape=(BATCH_SIZE, 256, 256, 3))
 model.summary(show_trainable=True)
 
 
-model.load_weights('model_good')
+model.load_weights('model_good_full')
 class CustomCallback(keras.callbacks.Callback):
     def on_train_batch_end(self, batch, logs=None):
         images, lbl = train_data.__getitem__(batch)
@@ -74,9 +76,11 @@ history = model.fit(
     train_data,
     epochs=EPOCHS,
     workers=1,
-    # use_multiprocessing=True,
+    use_multiprocessing=False,
     validation_data=test_data,  #   , callbacks=[CustomCallback()]
 )
 
-model.save_weights('model_good1')
+# %%
+model.save_weights('model_good_full')
+
 # %%

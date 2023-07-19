@@ -51,7 +51,8 @@ def make_prediction(
     padded_image, new_shape, scale = resize_and_pad(
         image, target_side=256.0, scale_jitter=None
     )
-    anchor_boxes = Anchors().get_anchors(padded_image.shape[0], padded_image.shape[1])
+    an = Anchors()
+    anchor_boxes = an.get_anchors(padded_image.shape[0], padded_image.shape[1])
 
     preds = model.predict(tf.expand_dims(padded_image, axis=0))
 

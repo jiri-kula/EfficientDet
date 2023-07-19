@@ -12,7 +12,8 @@
       "console": "integratedTerminal",
       "justMyCode": false,
       "env": {
-        "CUDA_VISIBLE_DEVICES": ""
+        // "CUDA_VISIBLE_DEVICES": ""
+        "PATH": "/usr/local/cuda/bin"
       },
     },
     {
@@ -21,7 +22,7 @@
       "request": "launch",
       "module": "cProfile",
       "console": "integratedTerminal",
-      "justMyCode": false,
+      "justMyCode": true,
       "args": [
         "-o",
         "/tmp/tmp.prof",
@@ -43,11 +44,11 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "model_good1",
+        "model_good_full",
         "-n",
         "efficientdet_d0",
         "-i",
-        "/mnt/c/Edwards/DetectionData/Dataset/zaznamy_z_vyroby/2022_12_20/rv12/montaz_5/rv12_00001898.png",
+        "/mnt/c/Edwards/DetectionData/Dataset/zaznamy_z_vyroby/2023_01_04/rv12/montaz_17/rv12_00006244.png",
         "-c",
         "6"
       ],

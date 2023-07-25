@@ -107,6 +107,7 @@ def make_prediction(
 args = parser.parse_args()
 
 model = get_efficientdet(args.n, num_classes=args.c, num_anchors=args.a)
+model.build(input_shape=(1, 256, 256, 3))
 model.load_weights(args.w)
 
 raw_image = tf.io.read_file(args.i)

@@ -44,11 +44,11 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "model_good_full",
+        "fit/epoch_14",
         "-n",
         "efficientdet_d0",
         "-i",
-        "/mnt/c/Edwards/DetectionData/Dataset/zaznamy_z_vyroby/2023_01_04/rv12/montaz_17/rv12_00006244.png",
+        "/mnt/c/Edwards/DetectionData/Dataset/RV12/dataset24_train/drazka/image_drazka_0022.png",
         "-c",
         "6"
       ],

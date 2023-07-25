@@ -359,17 +359,19 @@ class CSVDataset(keras.utils.Sequence):
 
             self.samples = list(self.samples.items())
 
-        self.batch = None
+        self.se = SamplesEncoder()
+
+        self.batch = [None] * self.__len__()
 
     def __len__(self):
         return len(self.samples) // self.batch_size
         # return 1
 
     def __getitem__(self, index):
-        # if self.batch is None:
-        #     self.batch = self.get_batch(0)
+        # if self.batch[index] is None:
+        #     self.batch[index] = self.get_batch(index)
         
-        # return self.batch
+        # return self.batch[index]
         return self.get_batch(index)
 
     def get_batch(self, index):
@@ -440,9 +442,8 @@ class CSVDataset(keras.utils.Sequence):
             )
 
         # train_images_aug = self.seq(images=train_images)
-        se = SamplesEncoder()
 
-        retval = se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes)
+        retval = self.se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes)
 
         assert(retval[1].shape[0] == self.batch_size)
 

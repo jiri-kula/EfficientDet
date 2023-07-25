@@ -17,7 +17,8 @@ def get_backbone(name='efficientnet_b0',
 
     backbone = models[name](include_top=False,
                             weights=weights,
-                            input_shape=[None, None, 3])
+                            input_shape=[256, 256, 3],
+                            input_tensor=tf.keras.Input(shape=(256, 256, 3)))
 
     outputs = [backbone.get_layer(layer_name).output for layer_name in [
         'block3b_add',

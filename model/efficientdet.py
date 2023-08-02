@@ -3,6 +3,7 @@
 import tensorflow as tf
 from .layers import BiFPN, ClassDetector, BoxRegressor
 from .backbone import get_backbone
+import tensorflow_hub as hub
 
 
 class EfficientDet(tf.keras.Model):
@@ -55,18 +56,22 @@ class EfficientDet(tf.keras.Model):
         """
         super().__init__(name=name)
 
-        self.backbone = get_backbone(backbone_name)
-        self.backbone.trainable = False
-
-        self.BiFPN = BiFPN(
-            channels=channels,
-            depth=bifpn_depth,
-            kernel_size=bifpn_kernel_size,
-            depth_multiplier=bifpn_depth_multiplier,
-            pooling_strategy=bifpn_pooling_strategy,
+        # self.backbone = get_backbone(backbone_name)
+        # self.backbone.trainable = False
+        self.backbone = hub.KerasLayer(
+            "https://tfhub.dev/tensorflow/efficientdet/lite0/feature-vector/1",
+            trainable=False,
         )
 
-        self.BiFPN.trainable = True
+        # self.BiFPN = BiFPN(
+        #     channels=channels,
+        #     depth=bifpn_depth,
+        #     kernel_size=bifpn_kernel_size,
+        #     depth_multiplier=bifpn_depth_multiplier,
+        #     pooling_strategy=bifpn_pooling_strategy,
+        # )
+
+        # self.BiFPN.trainable = True
 
         self.class_det = ClassDetector(
             channels=channels,
@@ -87,26 +92,46 @@ class EfficientDet(tf.keras.Model):
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
 
-        features = self.backbone(inputs)
-        features.append(tf.keras.layers.AveragePooling2D()(features[-1]))
-        features.append(tf.keras.layers.AveragePooling2D()(features[-1]))
+        # features = self.backbone(inputs)
+        # features.append(tf.keras.layers.AveragePooling2D()(features[-1]))
+        # features.append(tf.keras.layers.AveragePooling2D()(features[-1]))
 
-        fpn_features = self.BiFPN(features, training=training)
+        # fpn_features = self.BiFPN(features, training=training)
 
         classes = list()
         boxes = list()
-        for feature in fpn_features:
-            tmp1 = self.class_det(feature, training=training)
+        # for feature in fpn_features:
+        #     tmp1 = self.class_det(feature, training=training)
+        #     tmp = tf.reshape(
+        #         tmp1,
+        #         [batch_size, -1, self.class_det.num_classes],
+        #     )
+        #     classes.append(tmp)
+        #     boxes.append(
+        #         tf.reshape(
+        #             self.box_reg(feature, training=training), [batch_size, -1, 4]
+        #         )
+        #     )
+
+        c, b = self.backbone(inputs)
+
+        for i in range(0, 5):
+            tmp1 = self.class_det(c[i], training=training)
+            s = tmp1.shape[1]
             tmp = tf.reshape(
                 tmp1,
                 [batch_size, -1, self.class_det.num_classes],
+                # [batch_size, s, s, -1, self.class_det.num_classes],
             )
             classes.append(tmp)
-            boxes.append(
-                tf.reshape(
-                    self.box_reg(feature, training=training), [batch_size, -1, 4]
-                )
+
+            tmp1 = self.box_reg(b[i], training=training)
+            tmp = tf.reshape(
+                tmp1,
+                [batch_size, -1, 4],
             )
+            boxes.append(tmp)
+
 
         classes = tf.concat(classes, axis=1)
         boxes = tf.concat(boxes, axis=1)

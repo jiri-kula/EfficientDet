@@ -14,7 +14,7 @@ from typing import List
 from progress.bar import Bar
 
 IMG_FILE_SIZE = 320.0
-IMG_OUT_SIZE = 256.0
+IMG_OUT_SIZE = 320.0
 IMG_SCALE = IMG_OUT_SIZE / IMG_FILE_SIZE
 
 
@@ -133,7 +133,7 @@ def image_mosaic(images, delay=1):
     # cv.destroyAllWindows()
 
 
-class MyDataset(keras.utils.Sequence):
+class MyDataset(keras.utils.all_utils.Sequence):
     def __init__(self, data_dir, aug, batch_size, train=True):
         self.data_dir = data_dir
         self.aug = aug
@@ -326,7 +326,7 @@ class Sample:
         self.boxes.append(Box(row))
 
 
-class CSVDataset(keras.utils.Sequence):
+class CSVDataset(keras.utils.all_utils.Sequence):
     def __init__(self, meta_path, aug, batch_size, train=True):
         self.batch_size = batch_size
 
@@ -389,7 +389,7 @@ class CSVDataset(keras.utils.Sequence):
             boxes = sample[1].boxes
 
             Image = tf.keras.utils.load_img(image_path)
-            Image = Image.resize((256, 256))
+            Image = Image.resize((IMG_OUT_SIZE, IMG_OUT_SIZE))
             Image = tf.keras.utils.img_to_array(
                 Image, dtype=np.float32
             )  # see inference.py / 255.0

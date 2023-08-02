@@ -43,7 +43,7 @@ class BiFPNLayerNode(tf.keras.layers.Layer):
             name="node_conv",
         )
 
-        self.bn = tf.keras.layers.Identity()
+        # self.bn = tf.keras.layers.Identity()
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
     def call(self, inputs, training=False):
@@ -61,7 +61,8 @@ class BiFPNLayerNode(tf.keras.layers.Layer):
         scaled_tensors = [inputs[i] * self.w[i] / norm for i in range(self.w.shape[0])]
         w_sum = tf.math.add_n(scaled_tensors)
         conv = self.conv2d(w_sum)
-        bn = self.bn(conv, training=training)
+        # bn = self.bn(conv, training=training)
+        bn = conv
         return self.act(bn)
 
 
@@ -179,15 +180,15 @@ class BiFPN(tf.keras.layers.Layer):
         self.pooling_strategy = pooling_strategy
 
         self.convs_1x1 = [
-            tf.keras.layers.Conv2D(
+            tf.keras.layers.SeparableConv2D(
                 channels, 1, padding="same", name=f"1x1_conv_level_{3+i}"
             )
             for i in range(5)
         ]
 
-        self.bns = [
-            tf.keras.layers.Identity(name=f"bn_level_{i}") for i in range(5)
-        ]
+        # self.bns = [
+        #     tf.keras.layers.Identity(name=f"bn_level_{i}") for i in range(5)
+        # ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
         self.bifpn_layers = [
@@ -205,7 +206,8 @@ class BiFPN(tf.keras.layers.Layer):
         assert len(inputs) == 5
 
         squeezed = [self.convs_1x1[i](inputs[i]) for i in range(5)]
-        normalized = [self.bns[i](squeezed[i], training=training) for i in range(5)]
+        # normalized = [self.bns[i](squeezed[i], training=training) for i in range(5)]
+        normalized = squeezed
         activated = [self.act(normalized[i]) for i in range(5)]
         feature_maps = self.bifpn_layers[0](activated, training=training)
         for layer in self.bifpn_layers[1:]:
@@ -265,9 +267,9 @@ class ClassDetector(tf.keras.layers.Layer):
             for i in range(depth)
         ]
 
-        self.bns = [
-            tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
-        ]
+        # self.bns = [
+        #     tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
+        # ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
         bias_init = tf.constant_initializer(-np.log((1 - 0.01) / 0.01))
@@ -286,7 +288,7 @@ class ClassDetector(tf.keras.layers.Layer):
     def call(self, inputs, training=False):
         for i in range(self.depth):
             inputs = self.convs[i](inputs)
-            inputs = self.bns[i](inputs, training=training)
+            # inputs = self.bns[i](inputs, training=training)
             inputs = self.act(inputs)
         class_output = self.classes(inputs)
 
@@ -341,9 +343,9 @@ class BoxRegressor(tf.keras.layers.Layer):
             for i in range(depth)
         ]
 
-        self.bns = [
-            tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
-        ]
+        # self.bns = [
+        #     tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
+        # ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
         self.boxes = tf.keras.layers.SeparableConv2D(
@@ -359,19 +361,10 @@ class BoxRegressor(tf.keras.layers.Layer):
         )
 
     def call(self, inputs, training=False):
-        inputs2 = tf.identity(inputs)
-
         for i in range(self.depth):
             inputs = self.convs[i](inputs)
-            inputs = self.bns[i](inputs, training=training)
+            # inputs = self.bns[i](inputs, training=training)
             inputs = self.act(inputs)
         box_output = self.boxes(inputs)
-
-        for i in range(self.depth):
-            inputs2 = self.convs[i](inputs2)
-            inputs2 = self.bns[i](inputs2, training=False)
-            inputs2 = self.act(inputs2)
-        box_output2 = self.boxes(inputs2)
-
 
         return box_output

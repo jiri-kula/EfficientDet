@@ -57,10 +57,10 @@ class Anchors:
         """
         rx = tf.range(feature_width, dtype=tf.float32) + 0.5
         ry = tf.range(feature_height, dtype=tf.float32) + 0.5
-        xs = tf.tile(tf.reshape(rx, [1, -1]), [tf.shape(ry)[0], 1])
-        ys = tf.tile(tf.reshape(ry, [-1, 1]), [1, tf.shape(rx)[0]])
+        xs = tf.tile(tf.reshape(rx, [1, -1]), [tf.shape(ry)[0], 1]) # this is like repmat, or meshgrid with the next line
+        ys = tf.tile(tf.reshape(ry, [-1, 1]), [1, tf.shape(rx)[0]]) # at feature dims (40, 20, 10, 5, 3, ...)
 
-        centers = tf.stack([xs, ys], axis=-1) * self._strides[level - 3]
+        centers = tf.stack([xs, ys], axis=-1) * self._strides[level - 3] # transfers to image dims (320)
         centers = tf.reshape(centers, [-1, 1, 2])
         centers = tf.tile(centers, [1, self._num_anchors, 1])
         centers = tf.reshape(centers, [-1, 2])

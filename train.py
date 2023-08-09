@@ -14,8 +14,9 @@ MODEL_NAME = "efficientdet_d0"
 
 NUM_CLASSES = 6
 
-EPOCHS = 10000
-BATCH_SIZE = 64
+EPOCHS = 1000
+EAGERLY = True
+BATCH_SIZE = 16 if EAGERLY else 64
 
 INITIAL_LR = 0.01
 DECAY_STEPS = 433 * 155
@@ -37,9 +38,9 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 )
 
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.01),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
     loss=loss,
-    run_eagerly=False,
+    run_eagerly=EAGERLY,
 )
 
 # %%
@@ -56,15 +57,19 @@ model.compile(
 # )
 
 # train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-train_data = CSVDataset("/home/jiri/EfficientDet/meta_split_test.csv", None, BATCH_SIZE)
-test_data = CSVDataset("/home/jiri/EfficientDet/meta_split_test.csv", None, BATCH_SIZE)
+meta_train = "/mnt/c/Edwards/Output/RV12-lic/meta.csv"
+meta_test = "/mnt/c/Edwards/Output/RV12-lic/meta_test.csv"
+train_data = CSVDataset(meta_train, None, BATCH_SIZE)
+test_data = CSVDataset(meta_test, None, BATCH_SIZE)
 
 
 model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
+current_epoch = 250
 
-# model.load_weights('fit/epoch_14')
+model.load_weights('fit/epoch_{:d}'.format(current_epoch))
+
 class CustomCallback(keras.callbacks.Callback):
     # def on_train_batch_end(self, batch, logs=None):
     #     images, lbl = train_data.__getitem__(batch)
@@ -72,7 +77,9 @@ class CustomCallback(keras.callbacks.Callback):
     #     image_mosaic(images)
 
     def on_epoch_end(self, epoch, logs=None):
-        model.save_weights("fit/epoch_{:d}".format(epoch))
+        global current_epoch
+        current_epoch += 1
+        model.save_weights("fit/epoch_{:d}".format(current_epoch))
 
 
 def shared_mem_multiprocessing(sequence, workers=2, queue_max_size=16):

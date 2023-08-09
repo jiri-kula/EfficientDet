@@ -1,7 +1,7 @@
 """Implementation of EffDets."""
 
 import tensorflow as tf
-from .layers import BiFPN, ClassDetector, BoxRegressor
+from .layers import BiFPN, ClassDetector, BoxRegressor, AngleRegressor
 from .backbone import get_backbone
 import tensorflow_hub as hub
 
@@ -89,6 +89,14 @@ class EfficientDet(tf.keras.Model):
             depth_multiplier=box_depth_multiplier,
         )
 
+        self.angle_reg = AngleRegressor(
+            channels=channels,
+            num_anchors=num_anchors,
+            depth=heads_depth,
+            kernel_size=box_kernel_size,
+            depth_multiplier=box_depth_multiplier,
+        )
+
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
 
@@ -100,22 +108,12 @@ class EfficientDet(tf.keras.Model):
 
         classes = list()
         boxes = list()
-        # for feature in fpn_features:
-        #     tmp1 = self.class_det(feature, training=training)
-        #     tmp = tf.reshape(
-        #         tmp1,
-        #         [batch_size, -1, self.class_det.num_classes],
-        #     )
-        #     classes.append(tmp)
-        #     boxes.append(
-        #         tf.reshape(
-        #             self.box_reg(feature, training=training), [batch_size, -1, 4]
-        #         )
-        #     )
+        angles = list()
 
         c, b = self.backbone(inputs)
 
         for i in range(0, 5):
+            # classes
             tmp1 = self.class_det(c[i], training=training)
             s = tmp1.shape[1]
             tmp = tf.reshape(
@@ -125,6 +123,7 @@ class EfficientDet(tf.keras.Model):
             )
             classes.append(tmp)
 
+            # boxes
             tmp1 = self.box_reg(b[i], training=training)
             tmp = tf.reshape(
                 tmp1,
@@ -132,11 +131,19 @@ class EfficientDet(tf.keras.Model):
             )
             boxes.append(tmp)
 
+            # angles
+            tmp1 = self.angle_reg(b[i], training=training)
+            tmp = tf.reshape(
+                tmp1,
+                [batch_size, -1, 1],
+            )
+            angles.append(tmp)
 
         classes = tf.concat(classes, axis=1)
         boxes = tf.concat(boxes, axis=1)
+        angles = tf.concat(angles, axis=1)
 
-        retval = tf.concat([boxes, classes], axis=-1)
+        retval = tf.concat([boxes, classes, angles], axis=-1)
         return retval
 
 

@@ -68,6 +68,7 @@ def make_prediction(
     )
     boxes = to_corners(boxes)
     classes = tf.nn.sigmoid(preds[..., 4:])
+    angles = preds[..., 4]
 
     nms = tf.image.combined_non_max_suppression(
         tf.expand_dims(boxes, axis=2),
@@ -81,6 +82,8 @@ def make_prediction(
 
     valid_dets = nms.valid_detections[0]
 
+    max_anchor_scores = tf.reduce_max(classes, axis=-1)
+
     plt.axis("off")
     plt.imshow(image)
     ax = plt.gca()
@@ -93,15 +96,21 @@ def make_prediction(
             [x_min, y_min], w, h, fill=False, edgecolor=[0, 1, 0], linewidth=1
         )
         ax.add_patch(patch)
+
+        angle_idx = tf.where(max_anchor_scores[0] == nms.nmsed_scores[0, i])
+        angle = angles[0, int(angle_idx)]
+
         ax.text(
             x_min,
             y_min,
-            f"Class {int(nms.nmsed_classes[0, i])}: {nms.nmsed_scores[0, i]}",
+            f"Class {int(nms.nmsed_classes[0, i])}: {nms.nmsed_scores[0, i]:.2f}, {angle:.2f}",
             bbox={"facecolor": [0, 1, 0], "alpha": 0.4},
             clip_box=ax.clipbox,
             clip_on=True,
         )
         # print("x: {:d}, y1: {:d}, w: {:d}, h: {:d}".format(x_min, y_min, w, h))
+
+        
 
     plt.savefig(args.o)
 
@@ -115,4 +124,4 @@ model.load_weights(args.w)
 raw_image = tf.io.read_file(args.i)
 image = tf.image.decode_image(raw_image, channels=3)
 
-make_prediction(image, score_threshold=0.6)
+make_prediction(image, score_threshold=0.8)

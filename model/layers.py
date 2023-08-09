@@ -368,3 +368,77 @@ class BoxRegressor(tf.keras.layers.Layer):
         box_output = self.boxes(inputs)
 
         return box_output
+
+class AngleRegressor(tf.keras.layers.Layer):
+    """Regression head."""
+
+    def __init__(
+        self,
+        channels=64,
+        num_anchors=9,
+        depth=3,
+        kernel_size=3,
+        depth_multiplier=1,
+        name="angle_regressor",
+    ):
+        """Initialize regression model.
+
+        Args:
+            channels: an integer representing number of filters
+                inside each separable convolution layer.
+            num_anchors: an integer representing number of anchor
+                boxes.
+            depth: an integer representing number of separable
+                convolutions before final convolution.
+            kernel_size: an integer or tuple/list of 2 integers, specifying
+                the height and width of the 2D convolution window.
+            depth_multiplier: an integer representing depth multiplier for
+                separable convolution layers.
+            name: a string representing layer name.
+        """
+        super().__init__(name=name)
+        self.channels = channels
+        self.num_anchors = num_anchors
+        self.depth = depth
+        self.kernel_size = kernel_size
+        self.depth_multiplier = depth_multiplier
+
+        self.convs = [
+            tf.keras.layers.SeparableConv2D(
+                channels,
+                kernel_size,
+                padding="same",
+                depth_multiplier=depth_multiplier,
+                pointwise_initializer=tf.initializers.variance_scaling(),
+                depthwise_initializer=tf.initializers.variance_scaling(),
+                bias_initializer=tf.zeros_initializer(),
+                name=f"angle_reg_separable_conv_{i}",
+            )
+            for i in range(depth)
+        ]
+
+        # self.bns = [
+        #     tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
+        # ]
+        self.act = tf.keras.layers.Activation(tf.nn.silu)
+
+        self.angles = tf.keras.layers.SeparableConv2D(
+            1 * num_anchors,
+            kernel_size,
+            padding="same",
+            depth_multiplier=depth_multiplier,
+            activation=None,
+            pointwise_initializer=tf.initializers.variance_scaling(),
+            depthwise_initializer=tf.initializers.variance_scaling(),
+            bias_initializer=tf.zeros_initializer(),
+            name="angle_preds",
+        )
+
+    def call(self, inputs, training=False):
+        for i in range(self.depth):
+            inputs = self.convs[i](inputs)
+            # inputs = self.bns[i](inputs, training=training)
+            inputs = self.act(inputs)
+        angle_output = self.angles(inputs)
+
+        return angle_output

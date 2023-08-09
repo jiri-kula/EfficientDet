@@ -126,7 +126,7 @@ class SamplesEncoder:
         box_target = box_target / self._box_variance
         return box_target
 
-    def _encode_sample(self, image_shape, gt_boxes, classes):
+    def _encode_sample(self, image_shape, gt_boxes, classes, angles):
         if self.anchor_boxes is None:
             self.anchor_boxes = self._anchors.get_anchors(image_shape[1], image_shape[2])
         
@@ -142,11 +142,14 @@ class SamplesEncoder:
         class_target = tf.where(tf.equal(ignore_mask, 1.0), -2.0, class_target)
         class_target = tf.expand_dims(class_target, axis=-1)
 
-        label = tf.concat([box_target, class_target], axis=-1)
+        num_samples = class_target.shape[0]
+        angle_target = tf.constant(angles[0], shape=(num_samples, 1))
+
+        label = tf.concat([box_target, angle_target, class_target], axis=-1)
 
         return label
 
-    def encode_batch(self, images, gt_boxes, classes):
+    def encode_batch(self, images, gt_boxes, classes, angles):
         """Encode batch for training."""
 
         images_shape = tf.shape(images)
@@ -154,7 +157,7 @@ class SamplesEncoder:
 
         labels = tf.TensorArray(dtype=tf.float32, size=batch_size)
         for i in range(batch_size):
-            label = self._encode_sample(images_shape, gt_boxes[i], classes[i])
+            label = self._encode_sample(images_shape, gt_boxes[i], classes[i], angles[i])
             labels = labels.write(i, label)
         images = tf.keras.applications.efficientnet.preprocess_input(images)
         return images, labels.stack()

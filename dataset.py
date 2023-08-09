@@ -260,6 +260,7 @@ class IDX(IntEnum):
     Y1 = 4
     X2 = 7
     Y2 = 8
+    ANGLE = 9
 
 
 def unique_paths(reader, file, purpose=None):
@@ -293,6 +294,7 @@ class Box:
     x2: float
     y2: float
     lbl: int
+    angle: float
 
     def __init__(self, row):
         x1 = float(row[IDX.X1])
@@ -312,6 +314,7 @@ class Box:
         self.y2 = y2
 
         self.lbl = labels_map[row[IDX.OBJECT]]
+        self.angle = float(row[IDX.ANGLE])
 
 
 @dataclass
@@ -378,6 +381,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
         train_images = []
         lbl_boxes = []
         lbl_classes = []
+        lbl_angles = []
 
         idx_from = index * self.batch_size
         idx_to = min(idx_from + self.batch_size, len(self.samples))
@@ -400,6 +404,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
             num_boxes = len(boxes)
             BoundingBoxes = np.zeros((num_boxes, 4), dtype=np.float32)
             Classes = np.zeros((num_boxes,), dtype=np.float32)
+            Angles = np.zeros((num_boxes,), dtype=np.float32)
 
             for iobj, obj in enumerate(boxes):
                 x1 = obj.x1 * IMG_OUT_SIZE
@@ -422,9 +427,11 @@ class CSVDataset(keras.utils.all_utils.Sequence):
 
                 BoundingBoxes[iobj] = box
                 Classes[iobj] = float(obj.lbl)
+                Angles[iobj] = float(obj.angle)
 
             lbl_boxes.append(BoundingBoxes)
             lbl_classes.append(Classes)
+            lbl_angles.append(Angles)
 
         if (
             not (len(lbl_boxes) == len(lbl_classes) == len(train_images))
@@ -443,7 +450,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
 
         # train_images_aug = self.seq(images=train_images)
 
-        retval = self.se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes)
+        retval = self.se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes, lbl_angles)
 
         assert(retval[1].shape[0] == self.batch_size)
 

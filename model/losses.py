@@ -99,8 +99,10 @@ class AngleLoss(tf.keras.losses.Loss):
         loss = tf.abs(y_true - y_pred)
         l1 = self.delta * (loss - 0.5 * self.delta)
         l2 = 0.5 * loss ** 2
-        box_loss = tf.where(tf.less(loss, self.delta), l2, l1)
-        return tf.reduce_sum(box_loss, axis=-1)
+        ang_loss = tf.where(tf.less(loss, self.delta), l2, l1)
+        agg = tf.reduce_sum(ang_loss, axis=-1)
+
+        return agg
 
 
 class EffDetLoss(tf.keras.losses.Loss):
@@ -148,18 +150,21 @@ class EffDetLoss(tf.keras.losses.Loss):
         box_labels = y_true[..., :4]
         box_preds = y_pred[..., :4]
 
-        angle_labels = tf.expand_dims(y_true[..., 4], -1)
-        angle_preds =  tf.expand_dims(y_pred[..., 4], -1)
+        # angle_labels = tf.expand_dims(y_true[..., 4:6], -1)
+        # angle_preds =  tf.expand_dims(y_pred[..., 4:6], -1)
+
+        angle_labels = y_true[..., 4:6]
+        angle_preds =  y_pred[..., 4:6]
 
         cls_labels = tf.one_hot(
-            tf.cast(y_true[..., 5], dtype=tf.int32),
+            tf.cast(y_true[..., 6], dtype=tf.int32),
             depth=self.num_classes,
             dtype=tf.float32
         )
-        cls_preds = y_pred[..., 5:]
+        cls_preds = y_pred[..., 6:]
 
-        positive_mask = tf.cast(tf.greater(y_true[..., 5], -1.0), dtype=tf.float32)
-        ignore_mask = tf.cast(tf.equal(y_true[..., 5], -2.0), dtype=tf.float32)
+        positive_mask = tf.cast(tf.greater(y_true[..., 6], -1.0), dtype=tf.float32)
+        ignore_mask = tf.cast(tf.equal(y_true[..., 6], -2.0), dtype=tf.float32)
 
         clf_loss = self.class_loss(cls_labels, cls_preds)
         box_loss = self.box_loss(box_labels, box_preds)

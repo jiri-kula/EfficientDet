@@ -67,8 +67,8 @@ def make_prediction(
         axis=-1,
     )
     boxes = to_corners(boxes)
-    classes = tf.nn.sigmoid(preds[..., 4:])
-    angles = preds[..., 4]
+    angles = preds[..., 4:6]
+    classes = tf.nn.sigmoid(preds[..., 6:])
 
     nms = tf.image.combined_non_max_suppression(
         tf.expand_dims(boxes, axis=2),
@@ -101,9 +101,9 @@ def make_prediction(
         angle = angles[0, int(angle_idx)]
 
         ax.text(
-            x_min,
+            x_min - w / 2,
             y_min,
-            f"Class {int(nms.nmsed_classes[0, i])}: {nms.nmsed_scores[0, i]:.2f}, {angle:.2f}",
+            f"cs {int(nms.nmsed_classes[0, i])}: {nms.nmsed_scores[0, i]:.2f}, s:{angle[0]:.2f}, c:{angle[1]:.2f}",
             bbox={"facecolor": [0, 1, 0], "alpha": 0.4},
             clip_box=ax.clipbox,
             clip_on=True,
@@ -124,4 +124,4 @@ model.load_weights(args.w)
 raw_image = tf.io.read_file(args.i)
 image = tf.image.decode_image(raw_image, channels=3)
 
-make_prediction(image, score_threshold=0.8)
+make_prediction(image, score_threshold=0.5)

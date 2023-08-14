@@ -44,11 +44,11 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "fit/epoch_238",
+        "fit/epoch_1041",
         "-n",
         "efficientdet_d0",
         "-i",
-        "/mnt/c/Edwards/Output/RV12-lic/image_RV12-lic_0000.png",
+        "/mnt/c/Edwards/Output/RV12-lic/image_RV12-lic_0893.png",
         "-c",
         "6"
       ],

@@ -143,7 +143,11 @@ class SamplesEncoder:
         class_target = tf.expand_dims(class_target, axis=-1)
 
         num_samples = class_target.shape[0]
-        angle_target = tf.constant(angles[0], shape=(num_samples, 1))
+
+        single_target = tf.constant(angles, shape=(1, 2)) 
+
+        c = tf.constant([num_samples,1], tf.int32)
+        angle_target = tf.tile(single_target, c)
 
         label = tf.concat([box_target, angle_target, class_target], axis=-1)
 

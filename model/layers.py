@@ -420,10 +420,10 @@ class AngleRegressor(tf.keras.layers.Layer):
         # self.bns = [
         #     tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
         # ]
-        self.act = tf.keras.layers.Activation(tf.nn.silu)
+        self.act = tf.keras.layers.Activation(tf.nn.sigmoid)
 
         self.angles = tf.keras.layers.SeparableConv2D(
-            1 * num_anchors,
+            2 * num_anchors, # sin(a), cos(a)
             kernel_size,
             padding="same",
             depth_multiplier=depth_multiplier,

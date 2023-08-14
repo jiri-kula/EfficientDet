@@ -15,7 +15,7 @@ MODEL_NAME = "efficientdet_d0"
 NUM_CLASSES = 6
 
 EPOCHS = 1000
-EAGERLY = True
+EAGERLY = False
 BATCH_SIZE = 16 if EAGERLY else 64
 
 INITIAL_LR = 0.01
@@ -63,10 +63,10 @@ train_data = CSVDataset(meta_train, None, BATCH_SIZE)
 test_data = CSVDataset(meta_test, None, BATCH_SIZE)
 
 
-model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
+# model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
-current_epoch = 250
+current_epoch = 1411
 
 model.load_weights('fit/epoch_{:d}'.format(current_epoch))
 

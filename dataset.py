@@ -260,7 +260,8 @@ class IDX(IntEnum):
     Y1 = 4
     X2 = 7
     Y2 = 8
-    ANGLE = 9
+    SIN_ANGLE = 9
+    COS_ANGLE = 10
 
 
 def unique_paths(reader, file, purpose=None):
@@ -294,7 +295,8 @@ class Box:
     x2: float
     y2: float
     lbl: int
-    angle: float
+    sin_angle: float
+    cos_angle: float
 
     def __init__(self, row):
         x1 = float(row[IDX.X1])
@@ -314,8 +316,8 @@ class Box:
         self.y2 = y2
 
         self.lbl = labels_map[row[IDX.OBJECT]]
-        self.angle = float(row[IDX.ANGLE])
-
+        self.sin_angle = float(row[IDX.SIN_ANGLE])
+        self.cos_angle = float(row[IDX.COS_ANGLE])
 
 @dataclass
 class Sample:
@@ -404,7 +406,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
             num_boxes = len(boxes)
             BoundingBoxes = np.zeros((num_boxes, 4), dtype=np.float32)
             Classes = np.zeros((num_boxes,), dtype=np.float32)
-            Angles = np.zeros((num_boxes,), dtype=np.float32)
+            Angles = np.zeros((num_boxes, 2), dtype=np.float32)
 
             for iobj, obj in enumerate(boxes):
                 x1 = obj.x1 * IMG_OUT_SIZE
@@ -427,7 +429,8 @@ class CSVDataset(keras.utils.all_utils.Sequence):
 
                 BoundingBoxes[iobj] = box
                 Classes[iobj] = float(obj.lbl)
-                Angles[iobj] = float(obj.angle)
+                Angles[iobj][0] = float(obj.sin_angle)
+                Angles[iobj][1] = float(obj.cos_angle)
 
             lbl_boxes.append(BoundingBoxes)
             lbl_classes.append(Classes)

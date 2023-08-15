@@ -69,7 +69,7 @@ model.summary(show_trainable=True)
 
 current_epoch = 1411
 
-model.load_weights('fit/epoch_{:d}'.format(current_epoch))
+model.load_weights('tmp/fit/epoch_{:d}'.format(current_epoch))
 
 class CustomCallback(keras.callbacks.Callback):
     # def on_train_batch_end(self, batch, logs=None):
@@ -80,7 +80,7 @@ class CustomCallback(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         global current_epoch
         current_epoch += 1
-        model.save_weights("fit/epoch_{:d}".format(current_epoch))
+        model.save_weights("tmp/fit/epoch_{:d}".format(current_epoch))
 
 
 def shared_mem_multiprocessing(sequence, workers=2, queue_max_size=16):

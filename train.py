@@ -6,8 +6,9 @@ import numpy as np
 import keras
 from model.efficientdet import get_efficientdet
 from model.losses import EffDetLoss
-from model.anchors import SamplesEncoder
-from dataset import MyDataset, CSVDataset, image_mosaic
+from model.anchors import SamplesEncoder, Anchors
+from dataset import MyDataset, CSVDataset, image_mosaic, IMG_OUT_SIZE
+from model.utils import to_corners
 
 
 MODEL_NAME = "efficientdet_d0"
@@ -127,14 +128,52 @@ history = model.fit(
 )
 
 # %%
-model.save_weights("model_good_full")
+class PostProcessedEfficientDet(tf.keras.Model):
+  def __init__(self, efficient_det):
+    super().__init__(name="PostProcessedEfficientDet")
 
-# %%
+    # self.box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
+    # an = Anchors()
+    # self.anchor_boxes = an.get_anchors(IMG_OUT_SIZE, IMG_OUT_SIZE)
+    self.efficient_det = efficient_det
 
-# model.input.set_shape((1, 256, 256, 3))
-model.compute_output_shape((1, 320, 320, 3))
-model.load_weights('fit/epoch_1000')
+  def call(self, inputs):
+    preds = self.efficient_det(inputs)
+        
+    boxes = preds[..., :4]
+    # boxes = preds[..., :4] * self.box_variance
 
+    # boxes = tf.concat(
+    #     [
+    #         boxes[..., :2] * self.anchor_boxes[..., 2:] + self.anchor_boxes[..., :2],
+    #         tf.exp(boxes[..., 2:]) * self.anchor_boxes[..., 2:],
+    #     ],
+    #     axis=-1,
+    # )
+    
+    # boxes = to_corners(boxes)
+    angles = preds[..., 4:6]
+    classes = tf.nn.sigmoid(preds[..., 6:])
+
+    return boxes, classes, angles
+
+    # nms = tf.image.combined_non_max_suppression(
+    #     tf.expand_dims(boxes, axis=2),
+    #     classes,
+    #     max_output_size_per_class=4,
+    #     max_total_size=8,
+    #     iou_threshold=0.5,
+    #     score_threshold=float('-inf'),
+    #     clip_boxes=False,
+    # )
+
+    # return nms.valid_detections, nms.nmsed_boxes, nms.nmsed_scores, nms.nmsed_classes
+
+post_model = PostProcessedEfficientDet(model)
+
+post_model.compute_output_shape((1, 320, 320, 3))
+
+#%%
 def representative_dataset():
     for _ in range(100):
         data = np.random.rand(1, 320, 320, 3)
@@ -143,7 +182,7 @@ def representative_dataset():
 
 # Convert the model
 # converter = tf.lite.TFLiteConverter.from_saved_model('saved_model') # path to the SavedModel directory
-converter = tf.lite.TFLiteConverter.from_keras_model(model)
+converter = tf.lite.TFLiteConverter.from_keras_model(post_model)
 # This enables quantization
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 # This sets the representative dataset for quantization
@@ -155,6 +194,7 @@ converter.representative_dataset = representative_dataset
 # These set the input and output tensors to uint8 (added in r2.3)
 converter.experimental_new_converter = False
 converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
+                                       tf.lite.OpsSet.TFLITE_BUILTINS,
                                        tf.lite.OpsSet.SELECT_TF_OPS]
 converter.inference_input_type = tf.int8  # or tf.uint8
 converter.inference_output_type = tf.int8  # or tf.uint8
@@ -162,7 +202,7 @@ converter.inference_output_type = tf.int8  # or tf.uint8
 tflite_model = converter.convert()
 
 # Save the model.
-with open("model.tflite", "wb") as f:
+with open("post_model.tflite", "wb") as f:
     f.write(tflite_model)
 # %%
 

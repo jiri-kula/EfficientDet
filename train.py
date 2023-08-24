@@ -58,18 +58,20 @@ model.compile(
 # )
 
 # train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-meta_train = "/mnt/c/Edwards/Output/RV12-lic/meta.csv"
-meta_test = "/mnt/c/Edwards/Output/RV12-lic/meta_test.csv"
+meta_train = "/mnt/c/Edwards/rv5/rv5_train.csv"
+meta_test = "/mnt/c/Edwards/rv5/rv5_test.csv"
+
 train_data = CSVDataset(meta_train, None, BATCH_SIZE)
 test_data = CSVDataset(meta_test, None, BATCH_SIZE)
 
 
-# model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
+model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
-current_epoch = 1411
+weights_dir = "tmp/fit_rv5"
+current_epoch = 0
+model.load_weights(weights_dir + "/epoch_{:d}".format(current_epoch))
 
-model.load_weights('tmp/fit/epoch_{:d}'.format(current_epoch))
 
 class CustomCallback(keras.callbacks.Callback):
     # def on_train_batch_end(self, batch, logs=None):
@@ -80,7 +82,7 @@ class CustomCallback(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         global current_epoch
         current_epoch += 1
-        model.save_weights("tmp/fit/epoch_{:d}".format(current_epoch))
+        model.save_weights(weights_dir + "/epoch_{:d}".format(current_epoch))
 
 
 def shared_mem_multiprocessing(sequence, workers=2, queue_max_size=16):
@@ -127,53 +129,59 @@ history = model.fit(
     callbacks=[CustomCallback()],
 )
 
+
 # %%
 class PostProcessedEfficientDet(tf.keras.Model):
-  def __init__(self, efficient_det):
-    super().__init__(name="PostProcessedEfficientDet")
+    def __init__(self, efficient_det):
+        super().__init__(name="PostProcessedEfficientDet")
 
-    # self.box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
-    # an = Anchors()
-    # self.anchor_boxes = an.get_anchors(IMG_OUT_SIZE, IMG_OUT_SIZE)
-    self.efficient_det = efficient_det
+        # self.box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
+        # an = Anchors()
+        # self.anchor_boxes = an.get_anchors(IMG_OUT_SIZE, IMG_OUT_SIZE)
+        self.efficient_det = efficient_det
 
-  def call(self, inputs):
-    preds = self.efficient_det(inputs)
-        
-    boxes = preds[..., :4]
-    # boxes = preds[..., :4] * self.box_variance
+    def call(self, inputs):
+        preds = self.efficient_det(inputs)
 
-    # boxes = tf.concat(
-    #     [
-    #         boxes[..., :2] * self.anchor_boxes[..., 2:] + self.anchor_boxes[..., :2],
-    #         tf.exp(boxes[..., 2:]) * self.anchor_boxes[..., 2:],
-    #     ],
-    #     axis=-1,
-    # )
-    
-    # boxes = to_corners(boxes)
-    angles = preds[..., 4:6]
-    classes = tf.nn.sigmoid(preds[..., 6:])
+        boxes = preds[..., :4]
+        # boxes = preds[..., :4] * self.box_variance
 
-    return boxes, classes, angles
+        # boxes = tf.concat(
+        #     [
+        #         boxes[..., :2] * self.anchor_boxes[..., 2:] + self.anchor_boxes[..., :2],
+        #         tf.exp(boxes[..., 2:]) * self.anchor_boxes[..., 2:],
+        #     ],
+        #     axis=-1,
+        # )
 
-    # nms = tf.image.combined_non_max_suppression(
-    #     tf.expand_dims(boxes, axis=2),
-    #     classes,
-    #     max_output_size_per_class=4,
-    #     max_total_size=8,
-    #     iou_threshold=0.5,
-    #     score_threshold=float('-inf'),
-    #     clip_boxes=False,
-    # )
+        # boxes = to_corners(boxes)
+        angles = preds[..., 4:6]
+        classes = tf.nn.sigmoid(preds[..., 6:])
 
-    # return nms.valid_detections, nms.nmsed_boxes, nms.nmsed_scores, nms.nmsed_classes
+        return boxes, classes, angles
+
+        # nms = tf.image.combined_non_max_suppression(
+        #     tf.expand_dims(boxes, axis=2),
+        #     classes,
+        #     max_output_size_per_class=4,
+        #     max_total_size=8,
+        #     iou_threshold=0.5,
+        #     score_threshold=float('-inf'),
+        #     clip_boxes=False,
+        # )
+
+        # return nms.valid_detections, nms.nmsed_boxes, nms.nmsed_scores, nms.nmsed_classes
+
 
 post_model = PostProcessedEfficientDet(model)
 
 post_model.compute_output_shape((1, 320, 320, 3))
 
-#%%
+
+# %%
+model.compute_output_shape((1, 320, 320, 3))
+
+
 def representative_dataset():
     for _ in range(100):
         data = np.random.rand(1, 320, 320, 3)
@@ -182,7 +190,7 @@ def representative_dataset():
 
 # Convert the model
 # converter = tf.lite.TFLiteConverter.from_saved_model('saved_model') # path to the SavedModel directory
-converter = tf.lite.TFLiteConverter.from_keras_model(post_model)
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
 # This enables quantization
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 # This sets the representative dataset for quantization
@@ -193,16 +201,18 @@ converter.representative_dataset = representative_dataset
 # converter.target_spec.supported_types = [tf.int8]
 # These set the input and output tensors to uint8 (added in r2.3)
 converter.experimental_new_converter = False
-converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
-                                       tf.lite.OpsSet.TFLITE_BUILTINS,
-                                       tf.lite.OpsSet.SELECT_TF_OPS]
-converter.inference_input_type = tf.int8  # or tf.uint8
-converter.inference_output_type = tf.int8  # or tf.uint8
+converter.target_spec.supported_ops = [
+    tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
+    tf.lite.OpsSet.TFLITE_BUILTINS,
+    tf.lite.OpsSet.SELECT_TF_OPS,
+]
+converter.inference_input_type = tf.uint8  # or tf.uint8
+converter.inference_output_type = tf.uint8  # or tf.uint8
 # converter.experimental_new_converter = False
 tflite_model = converter.convert()
 
 # Save the model.
-with open("post_model.tflite", "wb") as f:
+with open("tmp/model.tflite", "wb") as f:
     f.write(tflite_model)
 # %%
 

@@ -260,8 +260,9 @@ class IDX(IntEnum):
     Y1 = 4
     X2 = 7
     Y2 = 8
-    SIN_ANGLE = 9
-    COS_ANGLE = 10
+    R13 = 9
+    R23 = 10
+    R31 = 11
 
 
 def unique_paths(reader, file, purpose=None):
@@ -295,8 +296,9 @@ class Box:
     x2: float
     y2: float
     lbl: int
-    sin_angle: float
-    cos_angle: float
+    r13: float
+    r23: float
+    r31: float
 
     def __init__(self, row):
         x1 = float(row[IDX.X1])
@@ -316,8 +318,10 @@ class Box:
         self.y2 = y2
 
         self.lbl = labels_map[row[IDX.OBJECT]]
-        self.sin_angle = float(row[IDX.SIN_ANGLE])
-        self.cos_angle = float(row[IDX.COS_ANGLE])
+        self.r13 = float(row[IDX.R13])
+        self.r23 = float(row[IDX.R23])
+        self.r31 = float(row[IDX.R23])
+
 
 @dataclass
 class Sample:
@@ -375,7 +379,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
     def __getitem__(self, index):
         # if self.batch[index] is None:
         #     self.batch[index] = self.get_batch(index)
-        
+
         # return self.batch[index]
         return self.get_batch(index)
 
@@ -406,7 +410,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
             num_boxes = len(boxes)
             BoundingBoxes = np.zeros((num_boxes, 4), dtype=np.float32)
             Classes = np.zeros((num_boxes,), dtype=np.float32)
-            Angles = np.zeros((num_boxes, 2), dtype=np.float32)
+            Angles = np.zeros((num_boxes, 3), dtype=np.float32)
 
             for iobj, obj in enumerate(boxes):
                 x1 = obj.x1 * IMG_OUT_SIZE
@@ -425,12 +429,15 @@ class CSVDataset(keras.utils.all_utils.Sequence):
                 h = y2 - y1
 
                 # where each box is of the format [x, y, width, height]
-                box = np.array([(x1 + x2) / 2.0, (y1 + y2) / 2.0, w, h], dtype=np.float32)
+                box = np.array(
+                    [(x1 + x2) / 2.0, (y1 + y2) / 2.0, w, h], dtype=np.float32
+                )
 
                 BoundingBoxes[iobj] = box
                 Classes[iobj] = float(obj.lbl)
-                Angles[iobj][0] = float(obj.sin_angle)
-                Angles[iobj][1] = float(obj.cos_angle)
+                Angles[iobj][0] = float(obj.r13)
+                Angles[iobj][1] = float(obj.r23)
+                Angles[iobj][2] = float(obj.r31)
 
             lbl_boxes.append(BoundingBoxes)
             lbl_classes.append(Classes)
@@ -453,8 +460,10 @@ class CSVDataset(keras.utils.all_utils.Sequence):
 
         # train_images_aug = self.seq(images=train_images)
 
-        retval = self.se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes, lbl_angles)
+        retval = self.se.encode_batch(
+            np.array(train_images), lbl_boxes, lbl_classes, lbl_angles
+        )
 
-        assert(retval[1].shape[0] == self.batch_size)
+        assert retval[1].shape[0] == self.batch_size
 
         return retval

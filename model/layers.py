@@ -369,6 +369,7 @@ class BoxRegressor(tf.keras.layers.Layer):
 
         return box_output
 
+
 class AngleRegressor(tf.keras.layers.Layer):
     """Regression head."""
 
@@ -423,7 +424,7 @@ class AngleRegressor(tf.keras.layers.Layer):
         self.act = tf.keras.layers.Activation(tf.nn.sigmoid)
 
         self.angles = tf.keras.layers.SeparableConv2D(
-            2 * num_anchors, # sin(a), cos(a)
+            3 * num_anchors,  # r13, r23, r31
             kernel_size,
             padding="same",
             depth_multiplier=depth_multiplier,

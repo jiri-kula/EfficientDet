@@ -135,7 +135,7 @@ class EfficientDet(tf.keras.Model):
             tmp1 = self.angle_reg(b[i], training=training)
             tmp = tf.reshape(
                 tmp1,
-                [batch_size, -1, 2],
+                [batch_size, -1, 3],  # rotation: r13, r23, r31
             )
             angles.append(tmp)
 

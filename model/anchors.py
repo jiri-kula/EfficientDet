@@ -57,10 +57,16 @@ class Anchors:
         """
         rx = tf.range(feature_width, dtype=tf.float32) + 0.5
         ry = tf.range(feature_height, dtype=tf.float32) + 0.5
-        xs = tf.tile(tf.reshape(rx, [1, -1]), [tf.shape(ry)[0], 1]) # this is like repmat, or meshgrid with the next line
-        ys = tf.tile(tf.reshape(ry, [-1, 1]), [1, tf.shape(rx)[0]]) # at feature dims (40, 20, 10, 5, 3, ...)
+        xs = tf.tile(
+            tf.reshape(rx, [1, -1]), [tf.shape(ry)[0], 1]
+        )  # this is like repmat, or meshgrid with the next line
+        ys = tf.tile(
+            tf.reshape(ry, [-1, 1]), [1, tf.shape(rx)[0]]
+        )  # at feature dims (40, 20, 10, 5, 3, ...)
 
-        centers = tf.stack([xs, ys], axis=-1) * self._strides[level - 3] # transfers to image dims (320)
+        centers = (
+            tf.stack([xs, ys], axis=-1) * self._strides[level - 3]
+        )  # transfers to image dims (320)
         centers = tf.reshape(centers, [-1, 1, 2])
         centers = tf.tile(centers, [1, self._num_anchors, 1])
         centers = tf.reshape(centers, [-1, 2])
@@ -128,13 +134,19 @@ class SamplesEncoder:
 
     def _encode_sample(self, image_shape, gt_boxes, classes, angles):
         if self.anchor_boxes is None:
-            self.anchor_boxes = self._anchors.get_anchors(image_shape[1], image_shape[2])
-        
+            self.anchor_boxes = self._anchors.get_anchors(
+                image_shape[1], image_shape[2]
+            )
+
         matched_gt_idx, positive_mask, ignore_mask = self._match_anchor_boxes(
             self.anchor_boxes, gt_boxes
         )
-        matched_gt_boxes = tf.gather(gt_boxes, matched_gt_idx) # select one box from gt_boxes for each anchor
-        box_target = self._compute_box_target(self.anchor_boxes, matched_gt_boxes) # compute shift + scale of anchor to match 'gt box' 
+        matched_gt_boxes = tf.gather(
+            gt_boxes, matched_gt_idx
+        )  # select one box from gt_boxes for each anchor
+        box_target = self._compute_box_target(
+            self.anchor_boxes, matched_gt_boxes
+        )  # compute shift + scale of anchor to match 'gt box'
 
         classes = tf.cast(classes, dtype=tf.float32)
         matched_gt_classes = tf.gather(classes, matched_gt_idx)
@@ -144,9 +156,9 @@ class SamplesEncoder:
 
         num_samples = class_target.shape[0]
 
-        single_target = tf.constant(angles, shape=(1, 2)) 
+        single_target = tf.constant(angles, shape=(1, 3))
 
-        c = tf.constant([num_samples,1], tf.int32)
+        c = tf.constant([num_samples, 1], tf.int32)
         angle_target = tf.tile(single_target, c)
 
         label = tf.concat([box_target, angle_target, class_target], axis=-1)
@@ -161,7 +173,9 @@ class SamplesEncoder:
 
         labels = tf.TensorArray(dtype=tf.float32, size=batch_size)
         for i in range(batch_size):
-            label = self._encode_sample(images_shape, gt_boxes[i], classes[i], angles[i])
+            label = self._encode_sample(
+                images_shape, gt_boxes[i], classes[i], angles[i]
+            )
             labels = labels.write(i, label)
         images = tf.keras.applications.efficientnet.preprocess_input(images)
         return images, labels.stack()

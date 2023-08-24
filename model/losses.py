@@ -11,11 +11,7 @@ import tensorflow as tf
 class FocalLoss(tf.keras.losses.Loss):
     """Focal loss implementations."""
 
-    def __init__(self,
-                 alpha=0.25,
-                 gamma=1.5,
-                 label_smoothing=0.1,
-                 name='focal_loss'):
+    def __init__(self, alpha=0.25, gamma=1.5, label_smoothing=0.1, name="focal_loss"):
         """Initialize parameters for Focal loss.
 
         FL = - alpha_t * (1 - p_t) ** gamma * log(p_t)
@@ -46,16 +42,14 @@ class FocalLoss(tf.keras.losses.Loss):
         y_true = y_true * (1.0 - self.label_smoothing) + 0.5 * self.label_smoothing
         ce = tf.nn.sigmoid_cross_entropy_with_logits(labels=y_true, logits=y_pred)
 
-        loss = at * (1.0 - pt)**self.gamma * ce
+        loss = at * (1.0 - pt) ** self.gamma * ce
         return tf.reduce_sum(loss, axis=-1)
 
 
 class BoxLoss(tf.keras.losses.Loss):
     """Huber loss implementation."""
 
-    def __init__(self,
-                 delta=1.0,
-                 name='box_loss'):
+    def __init__(self, delta=1.0, name="box_loss"):
         super().__init__(name=name, reduction="none")
         self.delta = delta
 
@@ -72,16 +66,15 @@ class BoxLoss(tf.keras.losses.Loss):
         """
         loss = tf.abs(y_true - y_pred)
         l1 = self.delta * (loss - 0.5 * self.delta)
-        l2 = 0.5 * loss ** 2
+        l2 = 0.5 * loss**2
         box_loss = tf.where(tf.less(loss, self.delta), l2, l1)
         return tf.reduce_sum(box_loss, axis=-1)
-    
+
+
 class AngleLoss(tf.keras.losses.Loss):
     """Huber loss implementation."""
 
-    def __init__(self,
-                 delta=1.0,
-                 name='angle_loss'):
+    def __init__(self, delta=1.0, name="angle_loss"):
         super().__init__(name=name, reduction="none")
         self.delta = delta
 
@@ -98,7 +91,7 @@ class AngleLoss(tf.keras.losses.Loss):
         """
         loss = tf.abs(y_true - y_pred)
         l1 = self.delta * (loss - 0.5 * self.delta)
-        l2 = 0.5 * loss ** 2
+        l2 = 0.5 * loss**2
         ang_loss = tf.where(tf.less(loss, self.delta), l2, l1)
         agg = tf.reduce_sum(ang_loss, axis=-1)
 
@@ -108,13 +101,15 @@ class AngleLoss(tf.keras.losses.Loss):
 class EffDetLoss(tf.keras.losses.Loss):
     """Composition of Focal and Huber losses."""
 
-    def __init__(self,
-                 num_classes=80,
-                 alpha=0.25,
-                 gamma=1.5,
-                 label_smoothing=0.1,
-                 delta=1.0,
-                 name='effdet_loss'):
+    def __init__(
+        self,
+        num_classes=80,
+        alpha=0.25,
+        gamma=1.5,
+        label_smoothing=0.1,
+        delta=1.0,
+        name="effdet_loss",
+    ):
         """Initialize Focal and Huber loss.
 
         Args:
@@ -127,7 +122,9 @@ class EffDetLoss(tf.keras.losses.Loss):
                 for choosing between linear and cubic loss.
         """
         super().__init__(name=name)
-        self.class_loss = FocalLoss(alpha=alpha, gamma=gamma, label_smoothing=label_smoothing)
+        self.class_loss = FocalLoss(
+            alpha=alpha, gamma=gamma, label_smoothing=label_smoothing
+        )
         self.box_loss = BoxLoss(delta=delta)
         self.angle_loss = AngleLoss(delta=delta)
         self.num_classes = num_classes
@@ -153,18 +150,18 @@ class EffDetLoss(tf.keras.losses.Loss):
         # angle_labels = tf.expand_dims(y_true[..., 4:6], -1)
         # angle_preds =  tf.expand_dims(y_pred[..., 4:6], -1)
 
-        angle_labels = y_true[..., 4:6]
-        angle_preds =  y_pred[..., 4:6]
+        angle_labels = y_true[..., 4:7]
+        angle_preds = y_pred[..., 4:7]
 
         cls_labels = tf.one_hot(
-            tf.cast(y_true[..., 6], dtype=tf.int32),
+            tf.cast(y_true[..., 7], dtype=tf.int32),
             depth=self.num_classes,
-            dtype=tf.float32
+            dtype=tf.float32,
         )
-        cls_preds = y_pred[..., 6:]
+        cls_preds = y_pred[..., 7:]
 
-        positive_mask = tf.cast(tf.greater(y_true[..., 6], -1.0), dtype=tf.float32)
-        ignore_mask = tf.cast(tf.equal(y_true[..., 6], -2.0), dtype=tf.float32)
+        positive_mask = tf.cast(tf.greater(y_true[..., 7], -1.0), dtype=tf.float32)
+        ignore_mask = tf.cast(tf.equal(y_true[..., 7], -2.0), dtype=tf.float32)
 
         clf_loss = self.class_loss(cls_labels, cls_preds)
         box_loss = self.box_loss(box_labels, box_preds)
@@ -172,13 +169,15 @@ class EffDetLoss(tf.keras.losses.Loss):
 
         clf_loss = tf.where(tf.equal(ignore_mask, 1.0), 0.0, clf_loss)
         box_loss = tf.where(tf.equal(positive_mask, 1.0), box_loss, 0.0)
-        ang_loss = tf.where(tf.equal(positive_mask, 1.0), ang_loss, 0.0) # TODO: decide which mask to use
+        ang_loss = tf.where(
+            tf.equal(positive_mask, 1.0), ang_loss, 0.0
+        )  # TODO: decide which mask to use
 
         normalizer = tf.reduce_sum(positive_mask, axis=-1)
         clf_loss = tf.math.divide_no_nan(tf.reduce_sum(clf_loss, axis=-1), normalizer)
         box_loss = tf.math.divide_no_nan(tf.reduce_sum(box_loss, axis=-1), normalizer)
         ang_loss = tf.math.divide_no_nan(tf.reduce_sum(ang_loss, axis=-1), normalizer)
-        
+
         loss = clf_loss + box_loss + ang_loss
-        
+
         return loss

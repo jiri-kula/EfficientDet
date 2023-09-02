@@ -3,6 +3,7 @@
 import argparse
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import numpy as np
 from model.efficientdet import get_efficientdet
 from model.anchors import Anchors
 from model.utils import to_corners, resize_and_pad
@@ -67,8 +68,8 @@ def make_prediction(
         axis=-1,
     )
     boxes = to_corners(boxes)
-    angles = preds[..., 4:7]
-    classes = tf.nn.sigmoid(preds[..., 7:])
+    angles = preds[..., 4:10]
+    classes = tf.nn.sigmoid(preds[..., 10:])
 
     valid_dets = 0
     while valid_dets < 1 and score_threshold > 0:
@@ -104,10 +105,25 @@ def make_prediction(
         angle_idx = tf.where(max_anchor_scores[0] == nms.nmsed_scores[0, i])
         angle = angles[0, int(angle_idx)]
 
+        oz = angle
+        oz /= np.linalg.norm(oz)
+
+        oy = np.array([-oz[1], oz[0]])
+
+        cx = x_min + w / 2.0
+        cy = y_min + h / 2.0
+
+        a = np.array([cx, cy])
+        b = a + 15.0 * oz
+        c = a + 15.0 * oy
+
+        ax.add_line(plt.Line2D([a[0], b[0]], [a[1], b[1]], color="blue"))
+        ax.add_line(plt.Line2D([a[0], c[0]], [a[1], c[1]], color="green"))
+
         ax.text(
             x_min - w / 2,
             y_min,
-            f"cls: {int(nms.nmsed_classes[0, i])}\nsco: {nms.nmsed_scores[0, i]:.2f}\nr12:{angle[0]:.2f}\nr23:{angle[1]:.2f}\nr31:{angle[2]:.2f}",
+            f"cls: {int(nms.nmsed_classes[0, i])}\nsco: {nms.nmsed_scores[0, i]:.2f}\nr12:{angle[0]:.2f}\nr23:{angle[1]:.2f}",
             bbox={"facecolor": [0, 1, 0], "alpha": 0.4},
             clip_box=ax.clipbox,
             clip_on=True,
@@ -126,4 +142,4 @@ model.load_weights(args.w)
 raw_image = tf.io.read_file(args.i)
 image = tf.image.decode_image(raw_image, channels=3)
 
-make_prediction(image, score_threshold=0.4)
+make_prediction(image, score_threshold=0.9)

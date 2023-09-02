@@ -29,3 +29,6 @@ Compilation failed!
 ```
 
 2) Do post processing in custom c++ code as we did that for palm and landmark detection. Anchors need to be generated in c++ and kept in sync with python training code manually.
+
+# Reference
+[Better rotation representations for accurate pose estimation](https://towardsdatascience.com/better-rotation-representations-for-accurate-pose-estimation-e890a7e1317f)

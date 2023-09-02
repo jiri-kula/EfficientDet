@@ -60,7 +60,7 @@ class EfficientDet(tf.keras.Model):
         # self.backbone.trainable = False
         self.backbone = hub.KerasLayer(
             "https://tfhub.dev/tensorflow/efficientdet/lite0/feature-vector/1",
-            trainable=False,
+            trainable=True,
         )
 
         # self.BiFPN = BiFPN(
@@ -133,17 +133,17 @@ class EfficientDet(tf.keras.Model):
 
             # angles
             tmp1 = self.angle_reg(b[i], training=training)
-            tmp = tf.reshape(
-                tmp1,
-                [batch_size, -1, 3],  # rotation: r13, r23, r31
-            )
-            angles.append(tmp)
+            # tmp = tf.reshape(
+            #     tmp1,
+            #     [batch_size, -1, 6],  # rotation: r13, r23
+            # )
+            angles.append(tmp1)
 
         classes = tf.concat(classes, axis=1)
         boxes = tf.concat(boxes, axis=1)
         angles = tf.concat(angles, axis=1)
 
-        retval = tf.concat([boxes, classes, angles], axis=-1)
+        retval = tf.concat([boxes, angles, classes], axis=-1)
         return retval
 
 

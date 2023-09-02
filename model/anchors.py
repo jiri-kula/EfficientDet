@@ -21,7 +21,9 @@ class Anchors:
         self._num_anchors = len(aspect_ratios) * len(scales)
 
         self._strides = [2**i for i in range(3, 8)]
-        self._areas = [i**2 for i in [32.0, 64.0, 128.0, 256.0, 512.0]]
+        self._areas = [
+            i**2 for i in [20.0, 24.0, 28.0, 32.0, 36.0]
+        ]  # TODO: RV12 shape analysis
         self._anchor_dims = self._compute_dims()
 
     def _compute_dims(self):
@@ -112,6 +114,9 @@ class SamplesEncoder:
         max_iou = tf.reduce_max(iou, axis=1)
         matched_gt_idx = tf.argmax(iou, axis=1)
         positive_mask = tf.greater_equal(max_iou, match_iou)
+
+        assert len(tf.where(positive_mask)) > 0
+
         negative_mask = tf.less(max_iou, ignore_iou)
         ignore_mask = tf.logical_not(tf.logical_or(positive_mask, negative_mask))
         return (
@@ -156,12 +161,16 @@ class SamplesEncoder:
 
         num_samples = class_target.shape[0]
 
-        single_target = tf.constant(angles, shape=(1, 3))
+        single_target = tf.constant(angles, shape=(1, 6))
 
-        c = tf.constant([num_samples, 1], tf.int32)
+        c = tf.constant(
+            [num_samples, 1], tf.int32
+        )  # TODO: this is not gonna work for multiple objects in one image
         angle_target = tf.tile(single_target, c)
 
         label = tf.concat([box_target, angle_target, class_target], axis=-1)
+
+        # assert len(tf.where(class_target > -1.0)) > 0
 
         return label
 

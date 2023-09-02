@@ -89,13 +89,23 @@ class AngleLoss(tf.keras.losses.Loss):
             A float tensor with shape (batch_size, num_anchor_boxes) with
             loss value for every anchor box.
         """
-        loss = tf.abs(y_true - y_pred)
-        l1 = self.delta * (loss - 0.5 * self.delta)
-        l2 = 0.5 * loss**2
-        ang_loss = tf.where(tf.less(loss, self.delta), l2, l1)
-        agg = tf.reduce_sum(ang_loss, axis=-1)
+        # loss = tf.abs(y_true - y_pred)
+        # l1 = self.delta * (loss - 0.5 * self.delta)
+        # l2 = 0.5 * loss**2
+        # ang_loss = tf.where(tf.less(loss, self.delta), l2, l1)
 
-        return agg
+        # # self.loss_rxx = tf.reduce_mean(ang_loss, 0)
+
+        # agg = tf.reduce_sum(ang_loss, axis=-1)
+
+        # return agg
+
+        loss = y_true - y_pred
+        # l2_loss = loss * loss
+
+        mse = tf.reduce_mean(tf.abs(loss), axis=-1)
+
+        return mse
 
 
 class EffDetLoss(tf.keras.losses.Loss):
@@ -150,18 +160,18 @@ class EffDetLoss(tf.keras.losses.Loss):
         # angle_labels = tf.expand_dims(y_true[..., 4:6], -1)
         # angle_preds =  tf.expand_dims(y_pred[..., 4:6], -1)
 
-        angle_labels = y_true[..., 4:7]
-        angle_preds = y_pred[..., 4:7]
+        angle_labels = y_true[..., 4:10]
+        angle_preds = y_pred[..., 4:10]
 
         cls_labels = tf.one_hot(
-            tf.cast(y_true[..., 7], dtype=tf.int32),
+            tf.cast(y_true[..., 10], dtype=tf.int32),
             depth=self.num_classes,
             dtype=tf.float32,
         )
-        cls_preds = y_pred[..., 7:]
+        cls_preds = y_pred[..., 10:]
 
-        positive_mask = tf.cast(tf.greater(y_true[..., 7], -1.0), dtype=tf.float32)
-        ignore_mask = tf.cast(tf.equal(y_true[..., 7], -2.0), dtype=tf.float32)
+        positive_mask = tf.cast(tf.greater(y_true[..., 10], -1.0), dtype=tf.float32)
+        ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
 
         clf_loss = self.class_loss(cls_labels, cls_preds)
         box_loss = self.box_loss(box_labels, box_preds)
@@ -178,6 +188,30 @@ class EffDetLoss(tf.keras.losses.Loss):
         box_loss = tf.math.divide_no_nan(tf.reduce_sum(box_loss, axis=-1), normalizer)
         ang_loss = tf.math.divide_no_nan(tf.reduce_sum(ang_loss, axis=-1), normalizer)
 
+        # clf_loss
         loss = clf_loss + box_loss + ang_loss
+
+        # tf.print(
+        #     [
+        #         tf.reduce_mean(clf_loss),
+        #         tf.reduce_mean(box_loss),
+        #         tf.reduce_mean(ang_loss),
+        #     ]
+        # )
+
+        # tf.print(
+        #     " clf: ",
+        #     tf.reduce_mean(clf_loss),
+        #     "box: ",
+        #     tf.reduce_mean(box_loss),
+        #     "ang: ",
+        #     tf.reduce_mean(ang_loss),
+        # )
+
+        # self.last_clf_loss = tf.reduce_mean(clf_loss)
+        # self.last_box_loss = tf.reduce_mean(box_loss)
+        # self.last_ang_loss = tf.reduce_mean(ang_loss)
+
+        # assert len(tf.where(loss == 0)) == 0
 
         return loss

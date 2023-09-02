@@ -12,7 +12,7 @@
       "console": "integratedTerminal",
       "justMyCode": false,
       "env": {
-        // "CUDA_VISIBLE_DEVICES": ""
+        // "CUDA_VISIBLE_DEVICES": "",
         "PATH": "/usr/local/cuda/bin"
       },
     },
@@ -44,11 +44,11 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "tmp/fit_rv5/epoch_2725",
+        "tmp/fit_6D_mae/epoch_220",
         "-n",
         "efficientdet_d0",
         "-i",
-        "/mnt/c/Edwards/rv5/Output/rv5_nedrazka/image_rv5_nedrazka_0255.png",
+        "/mnt/c/Edwards/rv5/Output/ruka_6D/drazka_rv5/image_drazka_rv5_0352.png",
         "-c",
         "6"
       ],

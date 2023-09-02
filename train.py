@@ -1,6 +1,7 @@
 # %%
 """Script for creating and training a new model."""
 
+import datetime
 import tensorflow as tf
 import numpy as np
 import keras
@@ -10,14 +11,13 @@ from model.anchors import SamplesEncoder, Anchors
 from dataset import MyDataset, CSVDataset, image_mosaic, IMG_OUT_SIZE
 from model.utils import to_corners
 
-
 MODEL_NAME = "efficientdet_d0"
 
 NUM_CLASSES = 6
 
 EPOCHS = 1000
-EAGERLY = False
-BATCH_SIZE = 16 if EAGERLY else 64
+EAGERLY = True
+BATCH_SIZE = 4 if EAGERLY else 16
 
 INITIAL_LR = 0.01
 DECAY_STEPS = 433 * 155
@@ -58,18 +58,17 @@ model.compile(
 # )
 
 # train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-meta_train = "/mnt/c/Edwards/rv5/rv5_train.csv"
-meta_test = "/mnt/c/Edwards/rv5/rv5_test.csv"
+meta_train = "/mnt/c/Edwards/rv5/Output/ruka_6D_train.csv"
+meta_test = "/mnt/c/Edwards/rv5/Output/ruka_6D_test.csv"
 
 train_data = CSVDataset(meta_train, None, BATCH_SIZE)
 test_data = CSVDataset(meta_test, None, BATCH_SIZE)
 
-
 model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
-weights_dir = "tmp/fit_rv5"
-current_epoch = 0
+weights_dir = "tmp/fit_6D_mae"
+current_epoch = 220
 model.load_weights(weights_dir + "/epoch_{:d}".format(current_epoch))
 
 
@@ -85,40 +84,27 @@ class CustomCallback(keras.callbacks.Callback):
         model.save_weights(weights_dir + "/epoch_{:d}".format(current_epoch))
 
 
-def shared_mem_multiprocessing(sequence, workers=2, queue_max_size=16):
-    from multiprocessing import Process, Queue, shared_memory, managers
-
-    queue = Queue(maxsize=queue_max_size)
-    manager = managers.SharedMemoryManager()
-    manager.start()
-
-    def worker(sequence, idxs):
-        for i in idxs:
-            x = sequence[i]
-
-            shm = manager.SharedMemory(size=x.nbytes)
-            a = np.ndarray(x.shape, dtype=x.dtype, buffer=shm.buf, offset=0)
-
-            a[:] = x[:]
-            queue.put((a.shape, a.dtype, shm.name))
-
-    idxs = np.array_split(np.arange(len(sequence)), workers)
-    args = zip([sequence] * workers, idxs)
-    processes = [Process(target=worker, args=(s, i)) for s, i in args]
-    _ = [p.start() for p in processes]
-
-    for i in range(len(sequence)):
-        x_shape, x_dtype, shm_name = queue.get(block=True)
-        existing_shm = shared_memory.SharedMemory(name=shm_name)
-        x = np.ndarray(x_shape, dtype=x_dtype, buffer=existing_shm.buf, offset=0)
-        yield x
-
-
 # %%
 # gpus = tf.config.experimental.list_physical_devices('GPU')
 # tf.config.experimental.set_memory_growth(gpus[0], True)
 
 # gen = shared_mem_multiprocessing(train_data, workers=4)
+
+
+class Loss_reporter(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs):
+        tf.summary.scalar(
+            "class loss", data=self.model.loss.get_last_clf_loss(), step=epoch
+        )
+        # tf.summary.scalar("box loss", self.model.loss.last_box_loss, step=epoch)
+        # tf.summary.scalar("angle loss", self.model.loss.last_ang_loss, step=epoch)
+
+
+log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
+# file_writer = tf.summary.create_file_writer(log_dir + "/metrics")
+# file_writer.set_as_default()
 
 history = model.fit(
     train_data,
@@ -126,7 +112,7 @@ history = model.fit(
     workers=1,
     use_multiprocessing=False,
     validation_data=test_data,
-    callbacks=[CustomCallback()],
+    callbacks=[CustomCallback(), tensorboard_callback],
 )
 
 

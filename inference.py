@@ -105,26 +105,39 @@ def make_prediction(
         angle_idx = tf.where(max_anchor_scores[0] == nms.nmsed_scores[0, i])
         angle = angles[0, int(angle_idx)]
 
-        oz = angle
-        oz /= np.linalg.norm(oz)
+        r1 = angle[:3]
+        r2 = angle[3:]
+        r3 = np.cross(r1, r2)
 
-        oy = np.array([-oz[1], oz[0]])
+        cRo = np.stack([r1, r2, r3], axis=1)
+
+        s = 15.0
+
+        xo = np.array([1, 0, 0])
+        yo = np.array([0, 1, 0])
+        zo = np.array([0, 0, 1])
+
+        xc = np.dot(cRo, xo)
+        yc = np.dot(cRo, yo)
+        zc = np.dot(cRo, zo)
 
         cx = x_min + w / 2.0
         cy = y_min + h / 2.0
 
-        a = np.array([cx, cy])
-        b = a + 15.0 * oz
-        c = a + 15.0 * oy
+        a = np.array([cx, cy, 0])
+        b = a + s * xc
+        c = a + s * yc
+        d = a + s * zc
 
-        ax.add_line(plt.Line2D([a[0], b[0]], [a[1], b[1]], color="blue"))
+        ax.add_line(plt.Line2D([a[0], b[0]], [a[1], b[1]], color="red"))
         ax.add_line(plt.Line2D([a[0], c[0]], [a[1], c[1]], color="green"))
+        ax.add_line(plt.Line2D([a[0], d[0]], [a[1], d[1]], color="blue"))
 
         ax.text(
             x_min - w / 2,
-            y_min,
-            f"cls: {int(nms.nmsed_classes[0, i])}\nsco: {nms.nmsed_scores[0, i]:.2f}\nr12:{angle[0]:.2f}\nr23:{angle[1]:.2f}",
-            bbox={"facecolor": [0, 1, 0], "alpha": 0.4},
+            y_min - h / 2,
+            f"cls: {int(nms.nmsed_classes[0, i])}\nsco: {nms.nmsed_scores[0, i]:.2f}\nr31:{r1[2]:.2f}",
+            bbox={"facecolor": [0, 1, 0], "alpha": 0.2},
             clip_box=ax.clipbox,
             clip_on=True,
         )

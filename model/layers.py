@@ -3,6 +3,19 @@
 import tensorflow as tf
 import numpy as np
 
+MOMENTUM = 0.1
+
+INIT_AXES = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]).astype(np.float32)
+
+
+def mean_angle_btw_vectors(v1, v2):
+    dot_product = tf.reduce_sum(v1 * v2, axis=-1)
+    cos_a = dot_product / (tf.norm(v1, axis=-1) * tf.norm(v2, axis=-1))
+    eps = 1e-8
+    cos_a = tf.clip_by_value(cos_a, -1 + eps, 1 - eps)
+    angle_dist = tf.math.acos(cos_a) / np.pi * 180.0
+    return tf.reduce_mean(angle_dist)
+
 
 class BiFPNLayerNode(tf.keras.layers.Layer):
     """One node in BiFPN for features fusing."""
@@ -43,7 +56,7 @@ class BiFPNLayerNode(tf.keras.layers.Layer):
             name="node_conv",
         )
 
-        # self.bn = tf.keras.layers.Identity()
+        self.bn = tf.keras.layers.BatchNormalization(momentum=MOMENTUM)
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
     def call(self, inputs, training=False):
@@ -61,7 +74,7 @@ class BiFPNLayerNode(tf.keras.layers.Layer):
         scaled_tensors = [inputs[i] * self.w[i] / norm for i in range(self.w.shape[0])]
         w_sum = tf.math.add_n(scaled_tensors)
         conv = self.conv2d(w_sum)
-        # bn = self.bn(conv, training=training)
+        bn = self.bn(conv, training=training)
         bn = conv
         return self.act(bn)
 
@@ -267,9 +280,10 @@ class ClassDetector(tf.keras.layers.Layer):
             for i in range(depth)
         ]
 
-        # self.bns = [
-        #     tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
-        # ]
+        self.bns = [
+            tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
+            for i in range(depth)
+        ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
         bias_init = tf.constant_initializer(-np.log((1 - 0.01) / 0.01))
@@ -343,9 +357,10 @@ class BoxRegressor(tf.keras.layers.Layer):
             for i in range(depth)
         ]
 
-        # self.bns = [
-        #     tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
-        # ]
+        self.bns = [
+            tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
+            for i in range(depth)
+        ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
         self.boxes = tf.keras.layers.SeparableConv2D(
@@ -418,28 +433,63 @@ class AngleRegressor(tf.keras.layers.Layer):
             for i in range(depth)
         ]
 
-        # self.bns = [
-        #     tf.keras.layers.Identity(name=f"bn_{i}") for i in range(depth)
-        # ]
-        self.act = tf.keras.layers.Activation(tf.nn.sigmoid)
+        self.bns = [
+            tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
+            for i in range(depth)
+        ]
+        self.act = tf.keras.layers.Activation(tf.nn.tanh)
 
         self.angles = tf.keras.layers.SeparableConv2D(
-            3 * num_anchors,  # r13, r23, r31
+            6 * num_anchors,  # r13, r23
             kernel_size,
             padding="same",
             depth_multiplier=depth_multiplier,
-            activation=None,
+            activation=tf.keras.layers.Activation(tf.nn.tanh),
             pointwise_initializer=tf.initializers.variance_scaling(),
             depthwise_initializer=tf.initializers.variance_scaling(),
             bias_initializer=tf.zeros_initializer(),
             name="angle_preds",
         )
 
+    def dot(self, a, b):
+        return tf.reduce_sum(a * b, axis=-1, keepdims=True)
+
+    def get_rotation_matrix(self, x):
+        c1 = x[:, :, :3]
+        c2 = x[:, :, 3:]
+        c3 = tf.linalg.cross(c1, c2)
+        return tf.stack([c1, c2, c3], axis=2)
+
+    def get_rotated(self, repr_6d):
+        init_v = tf.constant(INIT_AXES, dtype=tf.float32)
+        Rs = self.get_rotation_matrix(repr_6d)
+        y_pred = tf.transpose(tf.matmul(Rs, tf.transpose(init_v)), [0, 2, 1])
+        return y_pred
+
     def call(self, inputs, training=False):
         for i in range(self.depth):
             inputs = self.convs[i](inputs)
             # inputs = self.bns[i](inputs, training=training)
             inputs = self.act(inputs)
-        angle_output = self.angles(inputs)
+        x = self.angles(inputs)  # batch x 40 x 40 x 64
 
-        return angle_output
+        batch_size = tf.shape(inputs)[0]
+        x = tf.reshape(
+            x,
+            [batch_size, -1, 6],  # batch_size x anchors_in_layer x 6
+        )
+
+        r1 = x[:, :, :3]  # raw first column of rotation matrix
+        r2 = x[:, :, 3:]  # raw second culumn of rotation matrix
+
+        c1 = tf.nn.l2_normalize(r1, axis=-1)
+        c2 = tf.nn.l2_normalize(r2 - self.dot(c1, r2) * c1, axis=-1)
+
+        x = tf.concat([c1, c2], axis=-1)
+        # self.add_metric(
+        #     mean_angle_btw_vectors(inputs, self.get_rotated(x)),
+        #     name="mean_angular_distance",
+        #     aggregation="mean",
+        # )
+
+        return x

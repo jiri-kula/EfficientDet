@@ -260,9 +260,12 @@ class IDX(IntEnum):
     Y1 = 4
     X2 = 7
     Y2 = 8
-    R13 = 9
-    R23 = 10
+    R11 = 9
+    R21 = 10
     R31 = 11
+    R12 = 12
+    R22 = 13
+    R32 = 14
 
 
 def unique_paths(reader, file, purpose=None):
@@ -296,9 +299,12 @@ class Box:
     x2: float
     y2: float
     lbl: int
-    r13: float
-    r23: float
+    r11: float
+    r21: float
     r31: float
+    r21: float
+    r22: float
+    r32: float
 
     def __init__(self, row):
         x1 = float(row[IDX.X1])
@@ -318,9 +324,21 @@ class Box:
         self.y2 = y2
 
         self.lbl = labels_map[row[IDX.OBJECT]]
-        self.r13 = float(row[IDX.R13])
-        self.r23 = float(row[IDX.R23])
-        self.r31 = float(row[IDX.R23])
+        self.r11 = float(row[IDX.R11])
+        self.r21 = float(row[IDX.R21])
+        self.r31 = float(row[IDX.R31])
+        self.r12 = float(row[IDX.R12])
+        self.r22 = float(row[IDX.R22])
+        self.r32 = float(row[IDX.R32])
+
+    def width(self):
+        return self.x2 - self.x1
+
+    def height(self):
+        return self.y2 - self.y1
+
+    def area(self):
+        return self.width() * self.height()
 
 
 @dataclass
@@ -410,7 +428,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
             num_boxes = len(boxes)
             BoundingBoxes = np.zeros((num_boxes, 4), dtype=np.float32)
             Classes = np.zeros((num_boxes,), dtype=np.float32)
-            Angles = np.zeros((num_boxes, 3), dtype=np.float32)
+            Angles = np.zeros((num_boxes, 6), dtype=np.float32)
 
             for iobj, obj in enumerate(boxes):
                 x1 = obj.x1 * IMG_OUT_SIZE
@@ -435,9 +453,12 @@ class CSVDataset(keras.utils.all_utils.Sequence):
 
                 BoundingBoxes[iobj] = box
                 Classes[iobj] = float(obj.lbl)
-                Angles[iobj][0] = float(obj.r13)
-                Angles[iobj][1] = float(obj.r23)
+                Angles[iobj][0] = float(obj.r11)
+                Angles[iobj][1] = float(obj.r21)
                 Angles[iobj][2] = float(obj.r31)
+                Angles[iobj][3] = float(obj.r12)
+                Angles[iobj][4] = float(obj.r22)
+                Angles[iobj][5] = float(obj.r32)
 
             lbl_boxes.append(BoundingBoxes)
             lbl_classes.append(Classes)

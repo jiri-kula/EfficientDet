@@ -6,17 +6,19 @@ import tensorflow as tf
 import numpy as np
 import keras
 from model.efficientdet import get_efficientdet
-from model.losses import EffDetLoss
+from model.losses import EffDetLoss, AngleLoss
 from model.anchors import SamplesEncoder, Anchors
 from dataset import MyDataset, CSVDataset, image_mosaic, IMG_OUT_SIZE
 from model.utils import to_corners
+
+# tf.config.run_functions_eagerly(True)
 
 MODEL_NAME = "efficientdet_d0"
 
 NUM_CLASSES = 6
 
 EPOCHS = 1000
-EAGERLY = True
+EAGERLY = False
 BATCH_SIZE = 4 if EAGERLY else 16
 
 INITIAL_LR = 0.01
@@ -38,28 +40,50 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     CHECKPOINT_PATH, save_weights_only=True
 )
 
+
+# https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
+@tf.function
+def AngleMetric(y_true, y_pred):
+    class_label = y_true[..., 10]
+
+    angle_labels = y_true[..., 4:10]
+    angle_preds = y_pred[..., 4:10]
+
+    loss = angle_labels - angle_preds
+
+    positive_mask = tf.cast(tf.greater(class_label, -1.0), tf.float32)
+
+    r1_pred = angle_preds[..., :3]
+    r1_true = angle_labels[..., :3]
+
+    proj = tf.reduce_sum(
+        tf.multiply(r1_pred, r1_true), -1
+    )  # dot prod of true and pred vectors
+    q = tf.where(positive_mask == 1.0, proj, 0.0)  # zero out non-relevat
+
+    # we want all projections to be 1 (fit)
+
+    normalizer = tf.reduce_sum(positive_mask, axis=-1)
+
+    sample_metric = tf.math.divide_no_nan(tf.reduce_sum(q, axis=-1), normalizer)
+
+    batch_metric = tf.reduce_mean(sample_metric)
+
+    return batch_metric  # want to be 1
+
+
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
     loss=loss,
     run_eagerly=EAGERLY,
+    metrics=[AngleMetric],
 )
 
 # %%
 
-# model.build((4, 256, 256, 3))
-# model.summary()
-
-# tf.keras.utils.plot_model(
-#     model,
-#     show_shapes=True,
-#     show_dtype=True,
-#     show_layer_names=True,
-#     rankdir="TB",
-# )
-
 # train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-meta_train = "/mnt/c/Edwards/rv5/Output/ruka_6D_train.csv"
-meta_test = "/mnt/c/Edwards/rv5/Output/ruka_6D_test.csv"
+meta_train = "/mnt/c/Edwards/rv5/Output/ruka_hala_6D_aug.csv"
+meta_test = "/mnt/c/Edwards/rv5/Output/ruka_6D_aug_test.csv"
 
 train_data = CSVDataset(meta_train, None, BATCH_SIZE)
 test_data = CSVDataset(meta_test, None, BATCH_SIZE)
@@ -67,8 +91,8 @@ test_data = CSVDataset(meta_test, None, BATCH_SIZE)
 model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
-weights_dir = "tmp/fit_6D_mae"
-current_epoch = 220
+weights_dir = "tmp/fit_6D_aug_proj"
+current_epoch = 37
 model.load_weights(weights_dir + "/epoch_{:d}".format(current_epoch))
 
 
@@ -100,7 +124,9 @@ class Loss_reporter(tf.keras.callbacks.Callback):
         # tf.summary.scalar("angle loss", self.model.loss.last_ang_loss, step=epoch)
 
 
-log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+log_dir = "logs/fit/" + datetime.datetime.now().strftime(
+    "%Y%m%d-%H%M%S" + "/" + weights_dir
+)
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 # file_writer = tf.summary.create_file_writer(log_dir + "/metrics")
@@ -111,7 +137,7 @@ history = model.fit(
     epochs=EPOCHS,
     workers=1,
     use_multiprocessing=False,
-    validation_data=test_data,
+    validation_data=None,
     callbacks=[CustomCallback(), tensorboard_callback],
 )
 

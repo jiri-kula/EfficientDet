@@ -132,6 +132,9 @@ def make_prediction(
         ax.add_line(plt.Line2D([a[0], b[0]], [a[1], b[1]], color="red"))
         ax.add_line(plt.Line2D([a[0], c[0]], [a[1], c[1]], color="green"))
         ax.add_line(plt.Line2D([a[0], d[0]], [a[1], d[1]], color="blue"))
+        ax.add_line(
+            plt.Line2D([a[0], b[0]], [a[1], b[1]], color="red")
+        )  # last to become visible
 
         ax.text(
             x_min - w / 2,

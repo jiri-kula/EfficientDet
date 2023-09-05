@@ -429,15 +429,16 @@ class AngleRegressor(tf.keras.layers.Layer):
                 depthwise_initializer=tf.initializers.variance_scaling(),
                 bias_initializer=tf.zeros_initializer(),
                 name=f"angle_reg_separable_conv_{i}",
+                activation=tf.keras.layers.Activation(tf.nn.tanh),
             )
             for i in range(depth)
         ]
 
-        self.bns = [
-            tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
-            for i in range(depth)
-        ]
-        self.act = tf.keras.layers.Activation(tf.nn.tanh)
+        # self.bns = [
+        #     tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
+        #     for i in range(depth)
+        # ]
+        # self.act = tf.keras.layers.Activation(tf.nn.relu)
 
         self.angles = tf.keras.layers.SeparableConv2D(
             6 * num_anchors,  # r13, r23
@@ -470,7 +471,7 @@ class AngleRegressor(tf.keras.layers.Layer):
         for i in range(self.depth):
             inputs = self.convs[i](inputs)
             # inputs = self.bns[i](inputs, training=training)
-            inputs = self.act(inputs)
+            # inputs = self.act(inputs)
         x = self.angles(inputs)  # batch x 40 x 40 x 64
 
         batch_size = tf.shape(inputs)[0]

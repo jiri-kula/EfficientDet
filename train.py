@@ -42,7 +42,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 
 
 # https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
-@tf.function
+# @tf.function
 def AngleMetric(y_true, y_pred):
     class_label = y_true[..., 10]
 

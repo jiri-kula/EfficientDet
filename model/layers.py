@@ -429,7 +429,6 @@ class AngleRegressor(tf.keras.layers.Layer):
                 depthwise_initializer=tf.initializers.variance_scaling(),
                 bias_initializer=tf.zeros_initializer(),
                 name=f"angle_reg_separable_conv_{i}",
-                activation=tf.keras.layers.Activation(tf.nn.tanh),
             )
             for i in range(depth)
         ]
@@ -438,7 +437,7 @@ class AngleRegressor(tf.keras.layers.Layer):
         #     tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
         #     for i in range(depth)
         # ]
-        # self.act = tf.keras.layers.Activation(tf.nn.relu)
+        self.act = tf.keras.layers.Activation(tf.nn.tanh)
 
         self.angles = tf.keras.layers.SeparableConv2D(
             6 * num_anchors,  # r13, r23
@@ -471,7 +470,7 @@ class AngleRegressor(tf.keras.layers.Layer):
         for i in range(self.depth):
             inputs = self.convs[i](inputs)
             # inputs = self.bns[i](inputs, training=training)
-            # inputs = self.act(inputs)
+            inputs = self.act(inputs)
         x = self.angles(inputs)  # batch x 40 x 40 x 64
 
         batch_size = tf.shape(inputs)[0]
@@ -480,13 +479,13 @@ class AngleRegressor(tf.keras.layers.Layer):
             [batch_size, -1, 6],  # batch_size x anchors_in_layer x 6
         )
 
-        v1 = x[..., :3]  # raw first column of rotation matrix
-        v2 = x[..., 3:]  # raw second culumn of rotation matrix
+        v1 = x[:, :, :3]  # raw first column of rotation matrix
+        v2 = x[:, :, 3:]  # raw second culumn of rotation matrix
 
         r1 = tf.nn.l2_normalize(v1, axis=-1)
-        r1 = tf.nn.l2_normalize(v2 - self.dot(r1, v2) * r1, axis=-1)
+        r2 = tf.nn.l2_normalize(v2 - self.dot(r1, v2) * r1, axis=-1)
 
-        x = tf.concat([r1, r1], axis=-1)
+        x = tf.concat([r1, r2], axis=-1)
         # self.add_metric(
         #     mean_angle_btw_vectors(inputs, self.get_rotated(x)),
         #     name="mean_angular_distance",

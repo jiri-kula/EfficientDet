@@ -103,6 +103,8 @@ def make_prediction(
         ax.add_patch(patch)
 
         angle_idx = tf.where(max_anchor_scores[0] == nms.nmsed_scores[0, i])
+        if len(angle_idx) == 0:
+            continue
         angle = angles[0, int(angle_idx)]
 
         r1 = angle[:3]
@@ -129,7 +131,6 @@ def make_prediction(
         c = a + s * yc
         d = a + s * zc
 
-        ax.add_line(plt.Line2D([a[0], b[0]], [a[1], b[1]], color="red"))
         ax.add_line(plt.Line2D([a[0], c[0]], [a[1], c[1]], color="green"))
         ax.add_line(plt.Line2D([a[0], d[0]], [a[1], d[1]], color="blue"))
         ax.add_line(
@@ -158,4 +159,4 @@ model.load_weights(args.w)
 raw_image = tf.io.read_file(args.i)
 image = tf.image.decode_image(raw_image, channels=3)
 
-make_prediction(image, score_threshold=0.9)
+make_prediction(image, score_threshold=0.1)

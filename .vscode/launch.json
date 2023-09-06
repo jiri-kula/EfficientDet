@@ -44,15 +44,23 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "tmp/fit_6D_mae/epoch_220",
+        "tmp/fit_6D_aug_sae_relu/epoch_37",
         "-n",
         "efficientdet_d0",
         "-i",
-        "/mnt/c/Edwards/rv5/Output/ruka_6D/drazka_rv5/image_drazka_rv5_0352.png",
+        // "/mnt/c/Edwards/rv5/rv5_00003604.png",
+        "/mnt/c/Edwards/rv5/Output/hala_6D_aug/drazka_rv5/image_drazka_rv5_0021.png",
         "-c",
         "6"
       ],
       "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "test_tflite",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/test_tflite.py",
       "justMyCode": false
     }
   ]

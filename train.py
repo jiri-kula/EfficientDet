@@ -18,7 +18,7 @@ MODEL_NAME = "efficientdet_d0"
 NUM_CLASSES = 6
 
 EPOCHS = 1000
-EAGERLY = False
+EAGERLY = True
 BATCH_SIZE = 4 if EAGERLY else 16
 
 INITIAL_LR = 0.01
@@ -212,7 +212,7 @@ converter.representative_dataset = representative_dataset
 # For full integer quantization, though supported types defaults to int8 only, we explicitly declare it for clarity.
 # converter.target_spec.supported_types = [tf.int8]
 # These set the input and output tensors to uint8 (added in r2.3)
-converter.experimental_new_converter = False
+converter.experimental_new_converter = True
 converter.target_spec.supported_ops = [
     tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
     tf.lite.OpsSet.TFLITE_BUILTINS,
@@ -224,14 +224,14 @@ converter.inference_output_type = tf.uint8  # or tf.uint8
 tflite_model = converter.convert()
 
 # Save the model.
-with open("tmp/model.tflite", "wb") as f:
+with open("model.tflite", "wb") as f:
     f.write(tflite_model)
 # %%
 
 interpreter = tf.lite.Interpreter("model.tflite")
-interpreter.allocate_tensors()  # Needed before execution!
 input = interpreter.get_input_details()[0]  # Model has single input.
 output = interpreter.get_output_details()[0]
+interpreter.allocate_tensors()  # Needed before execution!
 input_data = tf.constant(50, shape=[1, 320, 320, 3], dtype="uint8")
 interpreter.set_tensor(input["index"], input_data)
 interpreter.invoke()

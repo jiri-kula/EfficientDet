@@ -32,3 +32,9 @@ Compilation failed!
 
 # Reference
 [Better rotation representations for accurate pose estimation](https://towardsdatascience.com/better-rotation-representations-for-accurate-pose-estimation-e890a7e1317f)
+
+# Inspiration
+By tflite model maker
+`/home/jiri/custom_model_maker/examples/tensorflow_examples/lite/model_maker/pip_package/src/tensorflow_examples/lite/model_maker/third_party/efficientdet/keras/postprocess.py`
+
+See comments in `def postprocess_tflite(params, cls_outputs, box_outputs):`

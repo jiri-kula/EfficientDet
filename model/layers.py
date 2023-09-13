@@ -479,13 +479,13 @@ class AngleRegressor(tf.keras.layers.Layer):
             [batch_size, -1, 6],  # batch_size x anchors_in_layer x 6
         )
 
-        # v1 = x[:, :, :3]  # raw first column of rotation matrix
-        # v2 = x[:, :, 3:]  # raw second culumn of rotation matrix
+        v1 = x[:, :, :3]  # raw first column of rotation matrix
+        v2 = x[:, :, 3:]  # raw second culumn of rotation matrix
 
-        # r1 = tf.nn.l2_normalize(v1, axis=-1)
-        # r2 = tf.nn.l2_normalize(v2 - self.dot(r1, v2) * r1, axis=-1)
+        r1 = tf.nn.l2_normalize(v1, axis=-1)
+        r2 = tf.nn.l2_normalize(v2 - self.dot(r1, v2) * r1, axis=-1)
 
-        # x = tf.concat([r1, r2], axis=-1)
+        x = tf.concat([r1, r2], axis=-1)
 
         # self.add_metric(
         #     mean_angle_btw_vectors(inputs, self.get_rotated(x)),

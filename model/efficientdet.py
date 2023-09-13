@@ -60,7 +60,7 @@ class EfficientDet(tf.keras.Model):
         # self.backbone.trainable = False
         self.backbone = hub.KerasLayer(
             "https://tfhub.dev/tensorflow/efficientdet/lite0/feature-vector/1",
-            trainable=True,
+            trainable=False,
         )
 
         # self.BiFPN = BiFPN(

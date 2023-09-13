@@ -19,17 +19,13 @@ NUM_CLASSES = 6
 
 EPOCHS = 300
 EAGERLY = False
-BATCH_SIZE = 4 if EAGERLY else 16
+BATCH_SIZE = 4 if EAGERLY else 64
 
 INITIAL_LR = 0.01
 DECAY_STEPS = 433 * 155
 init_lr = 0.001
 
 LR = tf.keras.experimental.CosineDecay(init_lr, DECAY_STEPS, 1e-3)
-
-# DATA_PATH = "/home/jiri/keypoint_rcnn_training_pytorch/rv12_COCO_dataset/train"
-DATA_PATH = "/mnt/d/dev/keypoints/rv12_dataset_v2"
-
 
 model = get_efficientdet(MODEL_NAME, num_classes=NUM_CLASSES)
 loss = EffDetLoss(num_classes=NUM_CLASSES)
@@ -51,10 +47,20 @@ def AngleMetric(y_true, y_pred):
     r1_pred = angle_preds[..., :3]
     r1_true = angle_labels[..., :3]
 
-    proj = tf.reduce_sum(
+    proj1 = tf.reduce_sum(
         tf.multiply(r1_pred, r1_true), -1
     )  # dot prod of true and pred vectors
-    q = tf.where(positive_mask == 1.0, proj, 0.0)  # zero out non-relevat
+
+    r2_pred = angle_preds[..., 3:]
+    r2_true = angle_labels[..., 3:]
+
+    proj2 = tf.reduce_sum(
+        tf.multiply(r2_pred, r2_true), -1
+    )  # dot prod of true and pred vectors
+
+    q = tf.where(
+        positive_mask == 1.0, (proj1 + proj2) / 2.0, 0.0
+    )  # zero out non-relevat
 
     # we want all projections to be 1 (fit)
 
@@ -85,7 +91,6 @@ train_data = CSVDataset(meta_train, None, BATCH_SIZE)
 
 model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
-
 
 # checkpoints
 checkpoint_dir = "checkpoints/hala_ruka_6D_aug_sae"

@@ -187,9 +187,9 @@ model.compute_output_shape((1, 320, 320, 3))
 
 
 def representative_dataset():
-    for _ in range(100):
-        data = 1.0 * np.random.rand(1, 320, 320, 3)
-        yield [data.astype(np.float32)]
+    for _ in range(2):
+        data = train_data[_][0]
+        yield [data]
 
 
 # Convert the model
@@ -200,16 +200,16 @@ converter.optimizations = [tf.lite.Optimize.DEFAULT]
 # This sets the representative dataset for quantization
 converter.representative_dataset = representative_dataset
 # This ensures that if any ops can't be quantized, the converter throws an error
-# converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
 # For full integer quantization, though supported types defaults to int8 only, we explicitly declare it for clarity.
-converter.target_spec.supported_types = [tf.int8]
+# converter.target_spec.supported_types = [tf.int8]
 # These set the input and output tensors to uint8 (added in r2.3)
 converter.experimental_new_converter = False
-converter.target_spec.supported_ops = [
-    tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
-    #     tf.lite.OpsSet.TFLITE_BUILTINS,
-    # tf.lite.OpsSet.SELECT_TF_OPS,
-]
+# converter.target_spec.supported_ops = [
+# tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
+#     tf.lite.OpsSet.TFLITE_BUILTINS,
+# tf.lite.OpsSet.SELECT_TF_OPS,
+# ]
 converter.inference_input_type = tf.uint8  # or tf.uint8
 converter.inference_output_type = tf.uint8  # or tf.uint8
 tflite_model = converter.convert()
@@ -217,6 +217,7 @@ tflite_model = converter.convert()
 # Save the model.
 with open("model.tflite", "wb") as f:
     f.write(tflite_model)
+    print("Done writing model to drive.")
 
 # %%
 interpreter = tf.lite.Interpreter("model.tflite")
@@ -247,10 +248,16 @@ retval = interpreter.get_tensor(output["index"])
 retval[0, ...]
 
 # dequantize
-scale = output["quantization_parameters"]["scales"][0]
-zero_point = output["quantization_parameters"]["zero_points"][0]
+scales = output["quantization_parameters"]["scales"]
+scale = scales[0] if len(scales) > 0 else 1.0
+
+zero_points = output["quantization_parameters"]["zero_points"]
+zero_point = zero_points[0] if len(zero_points) > 0 else 0
 
 real = (retval.astype(np.float32) - zero_point) * scale
+
+# retval[0, 7376, 10:]
+tf.sigmoid(real[0, 7376, 10:])
 
 # %%
 model.predict(images[0])

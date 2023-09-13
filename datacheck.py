@@ -1,7 +1,7 @@
 # %%
 import pandas as pd
 
-meta_train = "/mnt/c/Edwards/rv5/Output/ruka_hala_6D_aug.csv"
+meta_train = "/mnt/c/Edwards/rv5/Output/hala_ruka_6D_aug.csv"
 
 column_names = [
     "PURPOSE",
@@ -39,6 +39,8 @@ ng_nedrazka = df.loc[nedrazka & drazkou_do_kamery]
 
 assert len(ng_drazka) == 0
 assert len(ng_nedrazka) == 0
+
+print("Data is ok")
 
 # %%
 

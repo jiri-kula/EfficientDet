@@ -56,7 +56,7 @@ class BiFPNLayerNode(tf.keras.layers.Layer):
             name="node_conv",
         )
 
-        self.bn = tf.keras.layers.BatchNormalization(momentum=MOMENTUM)
+        # self.bn = tf.keras.layers.BatchNormalization(momentum=MOMENTUM)
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
     def call(self, inputs, training=False):
@@ -280,10 +280,10 @@ class ClassDetector(tf.keras.layers.Layer):
             for i in range(depth)
         ]
 
-        self.bns = [
-            tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
-            for i in range(depth)
-        ]
+        # self.bns = [
+        #     tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
+        #     for i in range(depth)
+        # ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
         bias_init = tf.constant_initializer(-np.log((1 - 0.01) / 0.01))
@@ -357,10 +357,10 @@ class BoxRegressor(tf.keras.layers.Layer):
             for i in range(depth)
         ]
 
-        self.bns = [
-            tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
-            for i in range(depth)
-        ]
+        # self.bns = [
+        #     tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
+        #     for i in range(depth)
+        # ]
         self.act = tf.keras.layers.Activation(tf.nn.silu)
 
         self.boxes = tf.keras.layers.SeparableConv2D(
@@ -479,13 +479,14 @@ class AngleRegressor(tf.keras.layers.Layer):
             [batch_size, -1, 6],  # batch_size x anchors_in_layer x 6
         )
 
-        v1 = x[:, :, :3]  # raw first column of rotation matrix
-        v2 = x[:, :, 3:]  # raw second culumn of rotation matrix
+        # v1 = x[:, :, :3]  # raw first column of rotation matrix
+        # v2 = x[:, :, 3:]  # raw second culumn of rotation matrix
 
-        r1 = tf.nn.l2_normalize(v1, axis=-1)
-        r2 = tf.nn.l2_normalize(v2 - self.dot(r1, v2) * r1, axis=-1)
+        # r1 = tf.nn.l2_normalize(v1, axis=-1)
+        # r2 = tf.nn.l2_normalize(v2 - self.dot(r1, v2) * r1, axis=-1)
 
-        x = tf.concat([r1, r2], axis=-1)
+        # x = tf.concat([r1, r2], axis=-1)
+
         # self.add_metric(
         #     mean_angle_btw_vectors(inputs, self.get_rotated(x)),
         #     name="mean_angular_distance",

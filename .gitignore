@@ -7,4 +7,5 @@ fit
 fit_full
 saved_model
 tmp
+checkpoints
 *.png

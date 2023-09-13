@@ -1,7 +1,7 @@
 # %%
 """Script for creating and training a new model."""
 
-import datetime
+import datetime, os
 import tensorflow as tf
 import numpy as np
 import keras
@@ -17,8 +17,8 @@ MODEL_NAME = "efficientdet_d0"
 
 NUM_CLASSES = 6
 
-EPOCHS = 1000
-EAGERLY = True
+EPOCHS = 300
+EAGERLY = False
 BATCH_SIZE = 4 if EAGERLY else 16
 
 INITIAL_LR = 0.01
@@ -30,15 +30,10 @@ LR = tf.keras.experimental.CosineDecay(init_lr, DECAY_STEPS, 1e-3)
 # DATA_PATH = "/home/jiri/keypoint_rcnn_training_pytorch/rv12_COCO_dataset/train"
 DATA_PATH = "/mnt/d/dev/keypoints/rv12_dataset_v2"
 
-CHECKPOINT_PATH = "/tmp/checkpoints/folder"
 
 model = get_efficientdet(MODEL_NAME, num_classes=NUM_CLASSES)
 loss = EffDetLoss(num_classes=NUM_CLASSES)
 opt = tf.keras.optimizers.SGD(LR, momentum=0.9)
-
-checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    CHECKPOINT_PATH, save_weights_only=True
-)
 
 
 # https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
@@ -82,55 +77,51 @@ model.compile(
 # %%
 
 # train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-meta_train = "/mnt/c/Edwards/rv5/Output/ruka_hala_6D_aug.csv"
-meta_test = "/mnt/c/Edwards/rv5/Output/ruka_6D_aug_test.csv"
+meta_train = "/mnt/c/Edwards/rv5/Output/hala_ruka_6D_aug.csv"
+# meta_test = "/mnt/c/Edwards/rv5/Output/ruka_6D_aug_test.csv"
 
 train_data = CSVDataset(meta_train, None, BATCH_SIZE)
-test_data = CSVDataset(meta_test, None, BATCH_SIZE)
+# test_data = CSVDataset(meta_test, None, BATCH_SIZE)
 
 model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
-weights_dir = "tmp/fit_6D_aug_proj"
-current_epoch = 37
-model.load_weights(weights_dir + "/epoch_{:d}".format(current_epoch))
 
+# checkpoints
+checkpoint_dir = "checkpoints/hala_ruka_6D_aug_sae"
+completed_epochs = 0
+latest = tf.train.latest_checkpoint(checkpoint_dir)
+if latest is None:
+    print("Checkpoint not found.")
+else:
+    # the epoch the training was at when the training was last interrupted
+    print("latest checkpoint: {:s}".format(latest))
+    completed_epochs = int(latest.split("/")[-1].split("-")[1])
+    model.load_weights(latest)
+    print("Checkpoint found {}".format(latest))
 
-class CustomCallback(keras.callbacks.Callback):
-    # def on_train_batch_end(self, batch, logs=None):
-    #     images, lbl = train_data.__getitem__(batch)
-    #     # print(images.shape)
-    #     image_mosaic(images)
-
-    def on_epoch_end(self, epoch, logs=None):
-        global current_epoch
-        current_epoch += 1
-        model.save_weights(weights_dir + "/epoch_{:d}".format(current_epoch))
-
+model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath=os.path.join(checkpoint_dir, "weights-{epoch:02d}"),
+    save_weights_only=True,
+    monitor="loss",
+    mode="min",
+    save_best_only=True,
+)
 
 # %%
-# gpus = tf.config.experimental.list_physical_devices('GPU')
-# tf.config.experimental.set_memory_growth(gpus[0], True)
 
-# gen = shared_mem_multiprocessing(train_data, workers=4)
-
-
-class Loss_reporter(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs):
-        tf.summary.scalar(
-            "class loss", data=self.model.loss.get_last_clf_loss(), step=epoch
-        )
-        # tf.summary.scalar("box loss", self.model.loss.last_box_loss, step=epoch)
-        # tf.summary.scalar("angle loss", self.model.loss.last_ang_loss, step=epoch)
-
-
+# tensorboard
+# time based log_dir
 log_dir = "logs/fit/" + datetime.datetime.now().strftime(
-    "%Y%m%d-%H%M%S" + "/" + weights_dir
+    "%Y%m%d-%H%M%S" + "/" + checkpoint_dir
 )
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-# file_writer = tf.summary.create_file_writer(log_dir + "/metrics")
-# file_writer.set_as_default()
+# constant log_dir
+# log_dir = "logs/fit/" + checkpoint_dir
+tensorboard_callback = tf.keras.callbacks.TensorBoard(
+    log_dir=log_dir, histogram_freq=1, write_images=True
+)
+
 
 history = model.fit(
     train_data,
@@ -138,7 +129,8 @@ history = model.fit(
     workers=1,
     use_multiprocessing=False,
     validation_data=None,
-    callbacks=[CustomCallback(), tensorboard_callback],
+    initial_epoch=completed_epochs,
+    callbacks=[model_checkpoint_callback, tensorboard_callback],
 )
 
 
@@ -196,7 +188,7 @@ model.compute_output_shape((1, 320, 320, 3))
 
 def representative_dataset():
     for _ in range(100):
-        data = np.random.rand(1, 320, 320, 3)
+        data = 1.0 * np.random.rand(1, 320, 320, 3)
         yield [data.astype(np.float32)]
 
 
@@ -210,34 +202,55 @@ converter.representative_dataset = representative_dataset
 # This ensures that if any ops can't be quantized, the converter throws an error
 # converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
 # For full integer quantization, though supported types defaults to int8 only, we explicitly declare it for clarity.
-# converter.target_spec.supported_types = [tf.int8]
+converter.target_spec.supported_types = [tf.int8]
 # These set the input and output tensors to uint8 (added in r2.3)
-converter.experimental_new_converter = True
+converter.experimental_new_converter = False
 converter.target_spec.supported_ops = [
     tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
-    tf.lite.OpsSet.TFLITE_BUILTINS,
-    tf.lite.OpsSet.SELECT_TF_OPS,
+    #     tf.lite.OpsSet.TFLITE_BUILTINS,
+    # tf.lite.OpsSet.SELECT_TF_OPS,
 ]
 converter.inference_input_type = tf.uint8  # or tf.uint8
 converter.inference_output_type = tf.uint8  # or tf.uint8
-# converter.experimental_new_converter = False
 tflite_model = converter.convert()
 
 # Save the model.
 with open("model.tflite", "wb") as f:
     f.write(tflite_model)
-# %%
 
+# %%
 interpreter = tf.lite.Interpreter("model.tflite")
 input = interpreter.get_input_details()[0]  # Model has single input.
 output = interpreter.get_output_details()[0]
-interpreter.allocate_tensors()  # Needed before execution!
-input_data = tf.constant(50, shape=[1, 320, 320, 3], dtype="uint8")
-interpreter.set_tensor(input["index"], input_data)
+interpreter.allocate_tensors()  # Needed before execution!¨
+
+# constant input
+# input_data = tf.constant(0, shape=[1, 320, 320, 3], dtype="uint8")
+# interpreter.set_tensor(input["index"], input_data)
+
+# input from dataset
+# img = train_data[0][0]
+# im = img[0]
+# im8 = im.astype(np.uint8)
+# im8e = tf.expand_dims(im8, axis=0)
+# interpreter.set_tensor(input["index"], im8e)
+
+# input loaded from image path
+image_path = "/mnt/c/Edwards/rv5/Output/hala_6D/drazka_rv5/image_drazka_rv5_0000.png"
+raw_image = tf.io.read_file(image_path)
+image = tf.image.decode_image(raw_image, channels=3)
+image = tf.expand_dims(image, axis=0)
+interpreter.set_tensor(input["index"], image)
+
 interpreter.invoke()
 retval = interpreter.get_tensor(output["index"])
 retval[0, ...]
 
+# dequantize
+scale = output["quantization_parameters"]["scales"][0]
+zero_point = output["quantization_parameters"]["zero_points"][0]
+
+real = (retval.astype(np.float32) - zero_point) * scale
 
 # %%
 model.predict(images[0])

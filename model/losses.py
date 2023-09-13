@@ -94,35 +94,18 @@ class AngleLoss(tf.keras.losses.Loss):
         # l2 = 0.5 * loss**2
         # ang_loss = tf.where(tf.less(loss, self.delta), l2, l1)
 
+        # # self.loss_rxx = tf.reduce_mean(ang_loss, 0)
+
         # agg = tf.reduce_sum(ang_loss, axis=-1)
 
         # return agg
 
-        # loss = y_true - y_pred
+        loss = y_true - y_pred
         # l2_loss = loss * loss
-        # mse = tf.reduce_sum(tf.abs(loss), axis=-1)
-        # return mse
 
-        angle_labels = y_true
-        angle_preds = y_pred
+        mse = tf.reduce_sum(tf.abs(loss), axis=-1)
 
-        loss = angle_labels - angle_preds
-
-        r1_pred = angle_preds[..., :3]
-        r1_true = angle_labels[..., :3]
-
-        proj1 = tf.reduce_sum(
-            tf.multiply(r1_pred, r1_true), -1
-        )  # dot prod of true and pred vectors
-
-        r2_pred = angle_preds[..., 3:]
-        r2_true = angle_labels[..., 3:]
-
-        proj2 = tf.reduce_sum(
-            tf.multiply(r2_pred, r2_true), -1
-        )  # dot prod of true and pred vectors
-
-        return 2.0 - proj1 - proj2
+        return mse
 
 
 class EffDetLoss(tf.keras.losses.Loss):

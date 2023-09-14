@@ -19,7 +19,7 @@ NUM_CLASSES = 6
 
 EPOCHS = 300
 EAGERLY = False
-BATCH_SIZE = 4 if EAGERLY else 64
+BATCH_SIZE = 4 if EAGERLY else 32
 
 INITIAL_LR = 0.01
 DECAY_STEPS = 433 * 155
@@ -28,56 +28,20 @@ init_lr = 0.001
 LR = tf.keras.experimental.CosineDecay(init_lr, DECAY_STEPS, 1e-3)
 
 model = get_efficientdet(MODEL_NAME, num_classes=NUM_CLASSES)
+
+model.var_freeze_expr = "efficientnet-lite0|resample_p6"
+
 loss = EffDetLoss(num_classes=NUM_CLASSES)
 opt = tf.keras.optimizers.SGD(LR, momentum=0.9)
 
 
-# https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
-# @tf.function
-def AngleMetric(y_true, y_pred):
-    class_label = y_true[..., 10]
-
-    angle_labels = y_true[..., 4:10]
-    angle_preds = y_pred[..., 4:10]
-
-    loss = angle_labels - angle_preds
-
-    positive_mask = tf.cast(tf.greater(class_label, -1.0), tf.float32)
-
-    r1_pred = angle_preds[..., :3]
-    r1_true = angle_labels[..., :3]
-
-    proj1 = tf.reduce_sum(
-        tf.multiply(r1_pred, r1_true), -1
-    )  # dot prod of true and pred vectors
-
-    r2_pred = angle_preds[..., 3:]
-    r2_true = angle_labels[..., 3:]
-
-    proj2 = tf.reduce_sum(
-        tf.multiply(r2_pred, r2_true), -1
-    )  # dot prod of true and pred vectors
-
-    q = tf.where(
-        positive_mask == 1.0, (proj1 + proj2) / 2.0, 0.0
-    )  # zero out non-relevat
-
-    # we want all projections to be 1 (fit)
-
-    normalizer = tf.reduce_sum(positive_mask, axis=-1)
-
-    sample_metric = tf.math.divide_no_nan(tf.reduce_sum(q, axis=-1), normalizer)
-
-    batch_metric = tf.reduce_mean(sample_metric)
-
-    return batch_metric  # want to be 1
-
+# model.metrics.append(AngleMetric)
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
     loss=loss,
     run_eagerly=EAGERLY,
-    metrics=[AngleMetric],
+    # metrics=[AngleMetric],
 )
 
 # %%
@@ -93,7 +57,7 @@ model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
 # checkpoints
-checkpoint_dir = "checkpoints/hala_ruka_6D_aug_sae"
+checkpoint_dir = "checkpoints/hala_ruka_6D_aug_sae_norm"
 completed_epochs = 0
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 if latest is None:

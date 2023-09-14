@@ -4,6 +4,48 @@ import tensorflow as tf
 from .layers import BiFPN, ClassDetector, BoxRegressor, AngleRegressor
 from .backbone import get_backbone
 import tensorflow_hub as hub
+import re
+
+
+# https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
+# @tf.function
+def AngleMetric(y_true, y_pred):
+    class_label = y_true[..., 10]
+
+    angle_labels = y_true[..., 4:10]
+    angle_preds = y_pred[..., 4:10]
+
+    loss = angle_labels - angle_preds
+
+    positive_mask = tf.cast(tf.greater(class_label, -1.0), tf.float32)
+
+    r1_pred = angle_preds[..., :3]
+    r1_true = angle_labels[..., :3]
+
+    proj1 = tf.reduce_sum(
+        tf.multiply(r1_pred, r1_true), -1
+    )  # dot prod of true and pred vectors
+
+    r2_pred = angle_preds[..., 3:]
+    r2_true = angle_labels[..., 3:]
+
+    proj2 = tf.reduce_sum(
+        tf.multiply(r2_pred, r2_true), -1
+    )  # dot prod of true and pred vectors
+
+    q = tf.where(
+        positive_mask == 1.0, (proj1 + proj2) / 2.0, 0.0
+    )  # zero out non-relevat
+
+    # we want all projections to be 1 (fit)
+
+    normalizer = tf.reduce_sum(positive_mask, axis=-1)
+
+    sample_metric = tf.math.divide_no_nan(tf.reduce_sum(q, axis=-1), normalizer)
+
+    batch_metric = tf.reduce_mean(sample_metric)
+
+    return batch_metric  # want to be 1
 
 
 class EfficientDet(tf.keras.Model):
@@ -56,11 +98,13 @@ class EfficientDet(tf.keras.Model):
         """
         super().__init__(name=name)
 
+        self.var_freeze_expr = None
+
         # self.backbone = get_backbone(backbone_name)
         # self.backbone.trainable = False
         self.backbone = hub.KerasLayer(
             "https://tfhub.dev/tensorflow/efficientdet/lite0/feature-vector/1",
-            trainable=False,
+            trainable=True,
         )
 
         # self.BiFPN = BiFPN(
@@ -145,6 +189,41 @@ class EfficientDet(tf.keras.Model):
 
         retval = tf.concat([boxes, angles, classes], axis=-1)
         return retval
+
+    def _freeze_vars(self):
+        if self.var_freeze_expr:
+            return [
+                v
+                for v in self.trainable_variables
+                if not re.match(self.var_freeze_expr, v.name)
+            ]
+
+    @tf.function
+    def train_step(self, data):
+        # Unpack the data. Its structure depends on your model and
+        # on what you pass to `fit()`.
+        x, y = data
+
+        with tf.GradientTape() as tape:
+            y_pred = self(x, training=True)  # Forward pass
+            # Compute the loss value
+            # (the loss function is configured in `compile()`)
+            loss = self.compute_loss(y=y, y_pred=y_pred)
+
+        # Compute gradients
+        trainable_vars = self._freeze_vars()
+        gradients = tape.gradient(loss, trainable_vars)
+        # Update weights
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        # Update metrics (includes the metric that tracks the loss)
+        for metric in self.metrics:
+            if metric.name == "loss":
+                metric.update_state(loss)
+            else:
+                metric.update_state(y, y_pred)
+        # Return a dict mapping metric names to current value
+        return {m.name: m.result() for m in self.metrics}
+        # return {"loss": self.metrics[0], "angle": AngleMetric(y, y_pred)}
 
 
 def get_efficientdet(name="efficientdet_d0", num_classes=80, num_anchors=9):

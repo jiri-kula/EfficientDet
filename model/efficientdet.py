@@ -213,7 +213,6 @@ class EfficientDet(tf.keras.Model):
             )
 
             # softmaxed_classes = tf.keras.activations.softmax(tmp) # no softmax - let all 0 + background class
-            # classes.append(tf.keras.activations.sigmoid(tmp))
             classes.append(tmp)
 
             # boxes
@@ -233,6 +232,8 @@ class EfficientDet(tf.keras.Model):
             angles.append(tmp1)
 
         classes = tf.concat(classes, axis=1)
+        classes = tf.keras.activations.sigmoid(classes)
+
         boxes = tf.concat(boxes, axis=1)
         angles = tf.concat(angles, axis=1)
 

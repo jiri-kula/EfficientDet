@@ -93,7 +93,7 @@ def make_prediction(
     plt.imshow(image)
     ax = plt.gca()
 
-    for i in range(0, min(2, valid_dets)):
+    for i in range(0, min(10, valid_dets)):
         x_min, y_min, x_max, y_max = nms.nmsed_boxes[0, i] / scale
         w, h = x_max - x_min, y_max - y_min
         # x_min, y_min, w, h = 75, 40, 35, 20
@@ -102,51 +102,52 @@ def make_prediction(
         )
         ax.add_patch(patch)
 
-        angle_idx = tf.where(max_anchor_scores[0] == nms.nmsed_scores[0, i])
-        if len(angle_idx) == 0:
-            continue
-        angle_idx = angle_idx[0]
-        angle = angles[0, int(angle_idx)]
+        angle_idxes = tf.where(max_anchor_scores[0] == nms.nmsed_scores[0, i])
+        # if len(angle_idx) == 0:
+        #     continue
+        # angle_idx = angle_idx[0]
+        for angle_idx in angle_idxes:
+            angle = angles[0, int(angle_idx)]
 
-        r1 = angle[:3]
-        r2 = angle[3:]
-        r3 = np.cross(r1, r2)
+            r1 = angle[:3]
+            r2 = angle[3:]
+            r3 = np.cross(r1, r2)
 
-        cRo = np.stack([r1, r2, r3], axis=1)
+            cRo = np.stack([r1, r2, r3], axis=1)
 
-        s = 15.0
+            s = 15.0
 
-        xo = np.array([1, 0, 0])
-        yo = np.array([0, 1, 0])
-        zo = np.array([0, 0, 1])
+            xo = np.array([1, 0, 0])
+            yo = np.array([0, 1, 0])
+            zo = np.array([0, 0, 1])
 
-        xc = np.dot(cRo, xo)
-        yc = np.dot(cRo, yo)
-        zc = np.dot(cRo, zo)
+            xc = np.dot(cRo, xo)
+            yc = np.dot(cRo, yo)
+            zc = np.dot(cRo, zo)
 
-        cx = x_min + w / 2.0
-        cy = y_min + h / 2.0
+            cx = x_min + w / 2.0
+            cy = y_min + h / 2.0
 
-        a = np.array([cx, cy, 0])
-        b = a + s * xc
-        c = a + s * yc
-        d = a + s * zc
+            a = np.array([cx, cy, 0])
+            b = a + s * xc
+            c = a + s * yc
+            d = a + s * zc
 
-        ax.add_line(plt.Line2D([a[0], c[0]], [a[1], c[1]], color="green"))
-        ax.add_line(plt.Line2D([a[0], d[0]], [a[1], d[1]], color="blue"))
-        ax.add_line(
-            plt.Line2D([a[0], b[0]], [a[1], b[1]], color="red")
-        )  # last to become visible
+            ax.add_line(plt.Line2D([a[0], c[0]], [a[1], c[1]], color="green"))
+            ax.add_line(plt.Line2D([a[0], d[0]], [a[1], d[1]], color="blue"))
+            ax.add_line(
+                plt.Line2D([a[0], b[0]], [a[1], b[1]], color="red")
+            )  # last to become visible
 
-        ax.text(
-            x_min - w / 2,
-            y_min - h / 2,
-            f"cls: {int(nms.nmsed_classes[0, i])}\nsco: {nms.nmsed_scores[0, i]:.2f}\nr31:{r1[2]:.2f}",
-            bbox={"facecolor": [0, 1, 0], "alpha": 0.2},
-            clip_box=ax.clipbox,
-            clip_on=True,
-        )
-        # print("x: {:d}, y1: {:d}, w: {:d}, h: {:d}".format(x_min, y_min, w, h))
+            ax.text(
+                x_min - w / 2,
+                y_min - h / 2,
+                f"cls: {int(nms.nmsed_classes[0, i])}\nsco: {nms.nmsed_scores[0, i]:.2f}\nr31:{r1[2]:.2f}",
+                bbox={"facecolor": [0, 1, 0], "alpha": 0.2},
+                clip_box=ax.clipbox,
+                clip_on=True,
+            )
+            # print("x: {:d}, y1: {:d}, w: {:d}, h: {:d}".format(x_min, y_min, w, h))
 
     plt.savefig(args.o)
 

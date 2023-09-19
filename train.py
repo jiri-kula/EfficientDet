@@ -33,7 +33,7 @@ learning_rate_boundaries = [125, 250, 500, 240000, 360000]
 learning_rate_fn = tf.optimizers.schedules.PiecewiseConstantDecay(
     boundaries=learning_rate_boundaries, values=learning_rates
 )
-optimizer = tf.keras.optimizers.legacy.SGD()  # (learning_rate=0.001, momentum=0.9)
+optimizer = tf.keras.optimizers.SGD()  # (learning_rate=0.001, momentum=0.9)
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
@@ -88,6 +88,8 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     save_best_only=True,
 )
 
+train_data = ds2.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+
 # %%
 
 # tensorboard
@@ -109,7 +111,6 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
 # train_data = train_data.padded_batch(BATCH_SIZE)
 # train_data = train_data.prefetch(tf.data.AUTOTUNE)
 
-train_data = ds2.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 history = model.fit(
     train_data,
@@ -124,11 +125,19 @@ history = model.fit(
 # %%
 model.compute_output_shape((1, 320, 320, 3))
 
+# https://www.tensorflow.org/lite/performance/post_training_quantization
+
 
 def representative_dataset():
-    for _ in range(1):
-        data = train_data[_][0]
-        yield [data]
+    data = train_data.take(1)
+    for image, label in data:
+        yield [image]
+
+
+# def representative_dataset():
+#     for _ in range(100):
+#         data = 2.0 * np.random.rand(1, 320, 320, 3) - 1.0
+#         yield [data.astype(np.float32)]
 
 
 # Convert the model
@@ -139,9 +148,12 @@ converter.optimizations = [tf.lite.Optimize.DEFAULT]
 # This sets the representative dataset for quantization
 converter.representative_dataset = representative_dataset
 # This ensures that if any ops can't be quantized, the converter throws an error
-converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+# converter.target_spec.supported_ops = [
+#     tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
+#     # tf.lite.OpsSet.SELECT_TF_OPS,
+# ]
 # For full integer quantization, though supported types defaults to int8 only, we explicitly declare it for clarity.
-# converter.target_spec.supported_types = [tf.int8]
+converter.target_spec.supported_types = [tf.int8]
 # These set the input and output tensors to uint8 (added in r2.3)
 converter.experimental_new_converter = False
 # converter.target_spec.supported_ops = [
@@ -153,13 +165,14 @@ converter.inference_input_type = tf.uint8  # or tf.uint8
 converter.inference_output_type = tf.uint8  # or tf.uint8
 tflite_model = converter.convert()
 
+
 # Save the model.
 with open("model.tflite", "wb") as f:
     f.write(tflite_model)
     print("Done writing model to drive.")
 
 # %%
-interpreter = tf.lite.Interpreter("rv12_rot.tflite")
+interpreter = tf.lite.Interpreter("model.tflite")
 input = interpreter.get_input_details()[0]  # Model has single input.
 output = interpreter.get_output_details()[0]
 interpreter.allocate_tensors()  # Needed before execution!¨
@@ -177,10 +190,10 @@ interpreter.allocate_tensors()  # Needed before execution!¨
 
 # input loaded from image path
 image_path = (
-    "/mnt/c/Edwards/rot_anot/RV12/drazka/drazka_rv12/image_drazka_rv12_0000.png"
+    "/mnt/c/Edwards/rot_anot2/RV12/drazka/drazka_rv12/image_drazka_rv12_0000.png"
 )
 raw_image = tf.io.read_file(image_path)
-image = tf.image.decode_image(raw_image, channels=3)
+image = tf.image.decode_image(raw_image, channels=3, dtype=tf.uint8)
 image = tf.expand_dims(image, axis=0)
 interpreter.set_tensor(input["index"], image)
 
@@ -199,7 +212,8 @@ retval = retval.astype(np.float32)
 real = (retval - zero_point) * scale
 
 ianchor = 6652
-real[0, ianchor, :]
+retval[0, ianchor, :]
+
 # tf.sigmoid(real[0, ianchor, 10:])
 
 # %%

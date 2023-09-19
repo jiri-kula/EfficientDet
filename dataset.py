@@ -235,7 +235,7 @@ class Sample:
         self.boxes.append(Box(row))
 
 
-class CSVDataset(keras.utils.Sequence):
+class CSVDataset(keras.utils.all_utils.Sequence):
     def __init__(self, meta_path, aug, batch_size, train=True):
         self.batch_size = batch_size
 

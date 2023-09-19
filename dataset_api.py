@@ -153,7 +153,7 @@ dataset = tf.data.Dataset.from_tensor_slices(dict(df))
 
 def load_image(image_path):
     raw_image = tf.io.read_file(image_path)
-    image = tf.image.decode_png(raw_image, channels=3, name="decode_image")
+    image = tf.image.decode_png(raw_image, channels=3)
     image = tf.image.resize(image, [320, 320])
     return image
 
@@ -207,5 +207,3 @@ train_data = ds2.shuffle(5000)
 # train_data = train_data.padded_batch(BATCH_SIZE, padding_values=(0.0, 1e-8, -1.0))
 train_data = train_data.padded_batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
-
-train_data

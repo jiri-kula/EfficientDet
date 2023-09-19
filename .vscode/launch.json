@@ -44,12 +44,12 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "checkpoints/hala_ruka_6D_aug_sae/weights-151",
+        "checkpoints/rv12_adam/weights-26",
         "-n",
         "efficientdet_d0",
         "-i",
         // "/mnt/c/Edwards/rv5/rv5_00003604.png",
-        "/mnt/c/Edwards/rv5/Output/hala_6D/drazka_rv5/image_drazka_rv5_0000.png",
+        "/mnt/c/Edwards/rot_anot/RV12/drazka/drazka_rv12/image_drazka_rv12_0000.png",
         "-c",
         "6"
       ],

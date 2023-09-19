@@ -3,7 +3,8 @@
 Repository with my implementation of [EfficientDet](https://arxiv.org/abs/1911.09070).
 
 CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))
-export LD_LIBRARY_PATH=$CONDA_PREFIX/lib/:$CUDNN_PATH/lib:$LD_LIBRARY_PATH
+CUPTI_PATH=/usr/local/cuda-12.2/targets/x86_64-linux/lib/
+export LD_LIBRARY_PATH=$CUDNN_PATH/lib:$CUPTI_PATH:$LD_LIBRARY_PATH
 python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 
 # CustomOp
@@ -38,3 +39,5 @@ By tflite model maker
 `/home/jiri/custom_model_maker/examples/tensorflow_examples/lite/model_maker/pip_package/src/tensorflow_examples/lite/model_maker/third_party/efficientdet/keras/postprocess.py`
 
 See comments in `def postprocess_tflite(params, cls_outputs, box_outputs):`
+
+https://keras.io/examples/vision/retinanet/

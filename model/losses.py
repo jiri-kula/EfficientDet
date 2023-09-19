@@ -36,6 +36,7 @@ class FocalLoss(tf.keras.losses.Loss):
             loss value for every anchor box.
         """
         prob = tf.sigmoid(y_pred)
+        # prob = y_pred
         pt = y_true * prob + (1 - y_true) * (1 - prob)
         at = y_true * self.alpha + (1 - y_true) * (1 - self.alpha)
 
@@ -135,6 +136,12 @@ class EffDetLoss(tf.keras.losses.Loss):
         self.class_loss = FocalLoss(
             alpha=alpha, gamma=gamma, label_smoothing=label_smoothing
         )
+        # self.class_loss = tf.losses.CategoricalCrossentropy(
+        #     reduction=tf.losses.Reduction.NONE
+        # )
+        # self.class_loss = tf.keras.losses.CategoricalFocalCrossentropy(
+        #     reduction=tf.losses.Reduction.NONE
+        # )
         self.box_loss = BoxLoss(delta=delta)
         self.angle_loss = AngleLoss(delta=delta)
         self.num_classes = num_classes

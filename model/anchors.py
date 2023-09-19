@@ -7,7 +7,7 @@ from .utils import compute_iou
 class Anchors:
     """Anchor boxes generator."""
 
-    def __init__(self, aspect_ratios=[0.5, 1, 2], scales=[0, 1 / 3, 2 / 3]):
+    def __init__(self, aspect_ratios=[0.35, 1.52, 2.66], scales=[0, 1 / 3, 2 / 3]):
         """Initialize anchors generator.
 
         Args:
@@ -22,7 +22,7 @@ class Anchors:
 
         self._strides = [2**i for i in range(3, 8)]
         self._areas = [
-            i**2 for i in [20.0, 24.0, 28.0, 32.0, 36.0]
+            i**2 for i in [51.0, 57.0, 62.0, 67.0, 72.0]
         ]  # TODO: RV12 shape analysis
         self._anchor_dims = self._compute_dims()
 
@@ -45,7 +45,7 @@ class Anchors:
             all_dims.append(tf.stack(level_dims, axis=0))
         return tf.stack(all_dims, axis=0)
 
-    # @tf.function
+    @tf.function
     def _get_anchors(self, feature_height, feature_width, level):
         """Get anchors for with given height and width on given level.
 
@@ -78,7 +78,7 @@ class Anchors:
         )
         return tf.concat([centers, dims], axis=-1)
 
-    # @tf.function
+    @tf.function
     def get_anchors(self, image_height, image_width):
         """Get anchors for given height and width on all levels.
 
@@ -115,7 +115,7 @@ class SamplesEncoder:
         matched_gt_idx = tf.argmax(iou, axis=1)
         positive_mask = tf.greater_equal(max_iou, match_iou)
 
-        assert len(tf.where(positive_mask)) > 0
+        # assert len(tf.where(positive_mask)) > 0
 
         negative_mask = tf.less(max_iou, ignore_iou)
         ignore_mask = tf.logical_not(tf.logical_or(positive_mask, negative_mask))
@@ -125,7 +125,7 @@ class SamplesEncoder:
             tf.cast(ignore_mask, dtype=tf.float32),
         )
 
-    # @tf.autograph.experimental.do_not_convert
+    @tf.autograph.experimental.do_not_convert
     def _compute_box_target(self, anchor_boxes, matched_gt_boxes):
         box_target = tf.concat(
             [
@@ -137,10 +137,11 @@ class SamplesEncoder:
         box_target = box_target / self._box_variance
         return box_target
 
+    @tf.autograph.experimental.do_not_convert
     def _encode_sample(self, image_shape, gt_boxes, classes, angles):
         if self.anchor_boxes is None:
             self.anchor_boxes = self._anchors.get_anchors(
-                image_shape[1], image_shape[2]
+                image_shape[0], image_shape[1]
             )
 
         matched_gt_idx, positive_mask, ignore_mask = self._match_anchor_boxes(
@@ -160,13 +161,11 @@ class SamplesEncoder:
         class_target = tf.expand_dims(class_target, axis=-1)
 
         num_samples = class_target.shape[0]
-
-        single_target = tf.constant(angles, shape=(1, 6))
-
+        # single_target = tf.constant(angles, shape=(1, 6))
         c = tf.constant(
             [num_samples, 1], tf.int32
         )  # TODO: this is not gonna work for multiple objects in one image
-        angle_target = tf.tile(single_target, c)
+        angle_target = tf.tile(angles, c)
 
         label = tf.concat([box_target, angle_target, class_target], axis=-1)
 

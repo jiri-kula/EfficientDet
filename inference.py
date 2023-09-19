@@ -85,7 +85,7 @@ def make_prediction(
 
         valid_dets = nms.valid_detections[0]
 
-        score_threshold -= 0.1
+        score_threshold -= 0.01
 
     max_anchor_scores = tf.reduce_max(classes, axis=-1)
 
@@ -93,7 +93,7 @@ def make_prediction(
     plt.imshow(image)
     ax = plt.gca()
 
-    for i in range(valid_dets):
+    for i in range(0, min(2, valid_dets)):
         x_min, y_min, x_max, y_max = nms.nmsed_boxes[0, i] / scale
         w, h = x_max - x_min, y_max - y_min
         # x_min, y_min, w, h = 75, 40, 35, 20
@@ -105,6 +105,7 @@ def make_prediction(
         angle_idx = tf.where(max_anchor_scores[0] == nms.nmsed_scores[0, i])
         if len(angle_idx) == 0:
             continue
+        angle_idx = angle_idx[0]
         angle = angles[0, int(angle_idx)]
 
         r1 = angle[:3]
@@ -159,4 +160,4 @@ model.load_weights(args.w)
 raw_image = tf.io.read_file(args.i)
 image = tf.image.decode_image(raw_image, channels=3)
 
-make_prediction(image, score_threshold=0.1)
+make_prediction(image, score_threshold=1.0)

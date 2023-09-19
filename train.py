@@ -5,13 +5,13 @@ import datetime, os
 import tensorflow as tf
 import numpy as np
 import keras
-from model.efficientdet import get_efficientdet
+from model.efficientdet import get_efficientdet, AngleMetric
 from model.losses import EffDetLoss, AngleLoss
 from model.anchors import SamplesEncoder, Anchors
-from dataset import MyDataset, CSVDataset, image_mosaic, IMG_OUT_SIZE
+from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
 from model.utils import to_corners
 
-# tf.config.run_functions_eagerly(True)
+from dataset_api import ds2
 
 MODEL_NAME = "efficientdet_d0"
 
@@ -19,45 +19,56 @@ NUM_CLASSES = 6
 
 EPOCHS = 300
 EAGERLY = False
-BATCH_SIZE = 4 if EAGERLY else 32
+tf.config.run_functions_eagerly(EAGERLY)
+BATCH_SIZE = 1 if EAGERLY else 64
 
-INITIAL_LR = 0.01
-DECAY_STEPS = 433 * 155
-init_lr = 0.001
-
-LR = tf.keras.experimental.CosineDecay(init_lr, DECAY_STEPS, 1e-3)
 
 model = get_efficientdet(MODEL_NAME, num_classes=NUM_CLASSES)
-
 model.var_freeze_expr = "efficientnet-lite0|resample_p6"
 
 loss = EffDetLoss(num_classes=NUM_CLASSES)
-opt = tf.keras.optimizers.SGD(LR, momentum=0.9)
 
-
-# model.metrics.append(AngleMetric)
+learning_rates = [2.5e-06, 0.000625, 0.00125, 0.0025, 0.00025, 2.5e-05]
+learning_rate_boundaries = [125, 250, 500, 240000, 360000]
+learning_rate_fn = tf.optimizers.schedules.PiecewiseConstantDecay(
+    boundaries=learning_rate_boundaries, values=learning_rates
+)
+optimizer = tf.keras.optimizers.legacy.SGD()  # (learning_rate=0.001, momentum=0.9)
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+    # optimizer=optimizer,
     loss=loss,
     run_eagerly=EAGERLY,
-    # metrics=[AngleMetric],
+    # metrics = [] see train_step of efficientdet
 )
 
 # %%
 
 # train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-meta_train = "/mnt/c/Edwards/rv5/Output/hala_ruka_6D_aug.csv"
+meta_train = "/mnt/c/Edwards/rot_anot/RV12/drazka/drazka_rv12/meta.csv"
 # meta_test = "/mnt/c/Edwards/rv5/Output/ruka_6D_aug_test.csv"
 
-train_data = CSVDataset(meta_train, None, BATCH_SIZE)
+# train_data = CSVDataset(meta_train, None, BATCH_SIZE)
+
+# train_data = tf.data.Dataset.from_generator(
+#     CSVDataset,
+#     args=[meta_train, 0, BATCH_SIZE],
+#     output_signature=(
+#         tf.TensorSpec(shape=(BATCH_SIZE, 320, 320, 3), dtype=tf.float32),
+#         tf.TensorSpec(shape=(BATCH_SIZE, 19206, 11), dtype=tf.float32),
+#     ),
+# ).prefetch(tf.data.AUTOTUNE)
+
 # test_data = CSVDataset(meta_test, None, BATCH_SIZE)
+# print("cardinality")
+# tf.data.experimental.cardinality(train_data)
 
 model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
 # checkpoints
-checkpoint_dir = "checkpoints/hala_ruka_6D_aug_sae_norm"
+checkpoint_dir = "checkpoints/rv12_adam"
 completed_epochs = 0
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 if latest is None:
@@ -88,9 +99,17 @@ log_dir = "logs/fit/" + datetime.datetime.now().strftime(
 # constant log_dir
 # log_dir = "logs/fit/" + checkpoint_dir
 tensorboard_callback = tf.keras.callbacks.TensorBoard(
-    log_dir=log_dir, histogram_freq=1, write_images=True
+    # log_dir=log_dir, histogram_freq=1, write_images=False, profile_batch="3,8"
+    log_dir=log_dir,
+    histogram_freq=1,
+    write_images=False,
 )
 
+# train_data = ds2.shuffle(5000)
+# train_data = train_data.padded_batch(BATCH_SIZE)
+# train_data = train_data.prefetch(tf.data.AUTOTUNE)
+
+train_data = ds2.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 history = model.fit(
     train_data,
@@ -102,61 +121,12 @@ history = model.fit(
     callbacks=[model_checkpoint_callback, tensorboard_callback],
 )
 
-
-# %%
-class PostProcessedEfficientDet(tf.keras.Model):
-    def __init__(self, efficient_det):
-        super().__init__(name="PostProcessedEfficientDet")
-
-        # self.box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
-        # an = Anchors()
-        # self.anchor_boxes = an.get_anchors(IMG_OUT_SIZE, IMG_OUT_SIZE)
-        self.efficient_det = efficient_det
-
-    def call(self, inputs):
-        preds = self.efficient_det(inputs)
-
-        boxes = preds[..., :4]
-        # boxes = preds[..., :4] * self.box_variance
-
-        # boxes = tf.concat(
-        #     [
-        #         boxes[..., :2] * self.anchor_boxes[..., 2:] + self.anchor_boxes[..., :2],
-        #         tf.exp(boxes[..., 2:]) * self.anchor_boxes[..., 2:],
-        #     ],
-        #     axis=-1,
-        # )
-
-        # boxes = to_corners(boxes)
-        angles = preds[..., 4:6]
-        classes = tf.nn.sigmoid(preds[..., 6:])
-
-        return boxes, classes, angles
-
-        # nms = tf.image.combined_non_max_suppression(
-        #     tf.expand_dims(boxes, axis=2),
-        #     classes,
-        #     max_output_size_per_class=4,
-        #     max_total_size=8,
-        #     iou_threshold=0.5,
-        #     score_threshold=float('-inf'),
-        #     clip_boxes=False,
-        # )
-
-        # return nms.valid_detections, nms.nmsed_boxes, nms.nmsed_scores, nms.nmsed_classes
-
-
-post_model = PostProcessedEfficientDet(model)
-
-post_model.compute_output_shape((1, 320, 320, 3))
-
-
 # %%
 model.compute_output_shape((1, 320, 320, 3))
 
 
 def representative_dataset():
-    for _ in range(2):
+    for _ in range(1):
         data = train_data[_][0]
         yield [data]
 
@@ -189,7 +159,7 @@ with open("model.tflite", "wb") as f:
     print("Done writing model to drive.")
 
 # %%
-interpreter = tf.lite.Interpreter("model.tflite")
+interpreter = tf.lite.Interpreter("rv12_rot.tflite")
 input = interpreter.get_input_details()[0]  # Model has single input.
 output = interpreter.get_output_details()[0]
 interpreter.allocate_tensors()  # Needed before execution!¨
@@ -206,7 +176,9 @@ interpreter.allocate_tensors()  # Needed before execution!¨
 # interpreter.set_tensor(input["index"], im8e)
 
 # input loaded from image path
-image_path = "/mnt/c/Edwards/rv5/Output/hala_6D/drazka_rv5/image_drazka_rv5_0000.png"
+image_path = (
+    "/mnt/c/Edwards/rot_anot/RV12/drazka/drazka_rv12/image_drazka_rv12_0000.png"
+)
 raw_image = tf.io.read_file(image_path)
 image = tf.image.decode_image(raw_image, channels=3)
 image = tf.expand_dims(image, axis=0)
@@ -221,12 +193,14 @@ scales = output["quantization_parameters"]["scales"]
 scale = scales[0] if len(scales) > 0 else 1.0
 
 zero_points = output["quantization_parameters"]["zero_points"]
-zero_point = zero_points[0] if len(zero_points) > 0 else 0
+zero_point = zero_points[0].astype(np.float32) if len(zero_points) > 0 else 0.0
 
-real = (retval.astype(np.float32) - zero_point) * scale
+retval = retval.astype(np.float32)
+real = (retval - zero_point) * scale
 
-# retval[0, 7376, 10:]
-tf.sigmoid(real[0, 7376, 10:])
+ianchor = 6652
+real[0, ianchor, :]
+# tf.sigmoid(real[0, ianchor, 10:])
 
 # %%
 model.predict(images[0])

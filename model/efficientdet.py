@@ -9,43 +9,74 @@ import re
 
 # https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
 # @tf.function
-def AngleMetric(y_true, y_pred):
-    class_label = y_true[..., 10]
 
-    angle_labels = y_true[..., 4:10]
-    angle_preds = y_pred[..., 4:10]
 
-    loss = angle_labels - angle_preds
+class AngleMetric(tf.keras.metrics.Metric):
+    def __init__(self, name="angle_alignment", **kwargs):
+        super(AngleMetric, self).__init__(name=name, **kwargs)
+        self.batch_metric = []
+        self.count = 0
 
-    positive_mask = tf.cast(tf.greater(class_label, -1.0), tf.float32)
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        class_label = y_true[..., 10]
 
-    r1_pred = angle_preds[..., :3]
-    r1_true = angle_labels[..., :3]
+        angle_labels = y_true[..., 4:10]
+        angle_preds = y_pred[..., 4:10]
 
-    proj1 = tf.reduce_sum(
-        tf.multiply(r1_pred, r1_true), -1
-    )  # dot prod of true and pred vectors
+        loss = angle_labels - angle_preds
 
-    r2_pred = angle_preds[..., 3:]
-    r2_true = angle_labels[..., 3:]
+        positive_mask = tf.cast(tf.greater(class_label, -1.0), tf.float32)
 
-    proj2 = tf.reduce_sum(
-        tf.multiply(r2_pred, r2_true), -1
-    )  # dot prod of true and pred vectors
+        r1_pred = angle_preds[..., :3]
+        r1_true = angle_labels[..., :3]
 
-    q = tf.where(
-        positive_mask == 1.0, (proj1 + proj2) / 2.0, 0.0
-    )  # zero out non-relevat
+        proj1 = tf.reduce_sum(
+            tf.multiply(r1_pred, r1_true), -1
+        )  # dot prod of true and pred vectors
 
-    # we want all projections to be 1 (fit)
+        r2_pred = angle_preds[..., 3:]
+        r2_true = angle_labels[..., 3:]
 
-    normalizer = tf.reduce_sum(positive_mask, axis=-1)
+        proj2 = tf.reduce_sum(
+            tf.multiply(r2_pred, r2_true), -1
+        )  # dot prod of true and pred vectors
 
-    sample_metric = tf.math.divide_no_nan(tf.reduce_sum(q, axis=-1), normalizer)
+        q = tf.where(
+            positive_mask == 1.0, (proj1 + proj2) / 2.0, 0.0
+        )  # zero out non-relevat
 
-    batch_metric = tf.reduce_mean(sample_metric)
+        # we want all projections to be 1 (fit)
 
-    return batch_metric  # want to be 1
+        normalizer = tf.reduce_sum(positive_mask, axis=-1)
+
+        sample_metric = tf.math.divide_no_nan(tf.reduce_sum(q, axis=-1), normalizer)
+
+        batch_metric = tf.reduce_mean(sample_metric, name="angle_sample_metric")
+        # self.set_count(self.get_count() + 1)
+
+        # self.batch_metric = (
+        #     self.get_metric() * (self.get_count() - 1) + batch_metric
+        # ) / self.get_count()
+
+        # self.count += 1
+        # a = tf.multiply(self.batch_metric, (self.count - 1))
+        # b = tf.add(a, batch_metric)
+        # c = self.count
+        # self.batch_metric = b / c
+        self.batch_metric.append(batch_metric)
+        self.count = tf.reduce_mean(self.batch_metric)
+
+    def result(self):
+        return self.count
+
+    def get_count(self):
+        return self.count
+
+    def set_count(self, val):
+        self.count = val
+
+    def get_metric(self):
+        return self.count
 
 
 class EfficientDet(tf.keras.Model):
@@ -99,6 +130,9 @@ class EfficientDet(tf.keras.Model):
         super().__init__(name=name)
 
         self.var_freeze_expr = None
+        self.loss_tracker = tf.metrics.Mean(name="loss")
+        self.angle_metric = AngleMetric()
+        self.mean_angle_metric = tf.metrics.Mean(name="mean_angle_metric")
 
         # self.backbone = get_backbone(backbone_name)
         # self.backbone.trainable = False
@@ -141,6 +175,18 @@ class EfficientDet(tf.keras.Model):
             depth_multiplier=box_depth_multiplier,
         )
 
+    @property
+    def metrics(self):
+        # We list our `Metric` objects here so that `reset_states()` can be
+        # called automatically at the start of each epoch
+        # or at the start of `evaluate()`.
+        # If you don't implement this property, you have to call
+        # `reset_states()` yourself at the time of your choosing.
+        return [
+            self.loss_tracker,
+            # self.angle_metric
+        ]
+
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
 
@@ -165,6 +211,9 @@ class EfficientDet(tf.keras.Model):
                 [batch_size, -1, self.class_det.num_classes],
                 # [batch_size, s, s, -1, self.class_det.num_classes],
             )
+
+            # softmaxed_classes = tf.keras.activations.softmax(tmp) # no softmax - let all 0 + background class
+            # classes.append(tf.keras.activations.sigmoid(tmp))
             classes.append(tmp)
 
             # boxes
@@ -221,9 +270,11 @@ class EfficientDet(tf.keras.Model):
                 metric.update_state(loss)
             else:
                 metric.update_state(y, y_pred)
+
+        # self.angle_metric.update_state(y_true=y, y_pred=y_pred)
         # Return a dict mapping metric names to current value
         return {m.name: m.result() for m in self.metrics}
-        # return {"loss": self.metrics[0], "angle": AngleMetric(y, y_pred)}
+        # return {"loss": self.metrics[0], "angle": self.angle_metric.result()}
 
 
 def get_efficientdet(name="efficientdet_d0", num_classes=80, num_anchors=9):

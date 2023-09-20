@@ -144,7 +144,7 @@ column_names = [
     "R32",
 ]
 
-meta_train = "/mnt/c/Edwards/rot_anot/RV12/drazka/drazka_rv12/meta.csv"
+meta_train = "/mnt/c/Edwards/annotation/RV12/merge.csv"
 df = pd.read_csv(meta_train, header=None, names=column_names)
 df.head()
 

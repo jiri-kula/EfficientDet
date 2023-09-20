@@ -232,7 +232,9 @@ class EfficientDet(tf.keras.Model):
             angles.append(tmp1)
 
         classes = tf.concat(classes, axis=1)
-        classes = tf.keras.activations.sigmoid(classes)
+        classes = tf.keras.activations.sigmoid(
+            classes
+        )  # uncomment this line before conversin to tflite, but comment out before training
 
         boxes = tf.concat(boxes, axis=1)
         angles = tf.concat(angles, axis=1)

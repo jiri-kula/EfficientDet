@@ -44,31 +44,11 @@ model.compile(
 )
 
 # %%
-
-# train_data = MyDataset(DATA_PATH, None, BATCH_SIZE)
-meta_train = "/mnt/c/Edwards/rot_anot/RV12/drazka/drazka_rv12/meta.csv"
-# meta_test = "/mnt/c/Edwards/rv5/Output/ruka_6D_aug_test.csv"
-
-# train_data = CSVDataset(meta_train, None, BATCH_SIZE)
-
-# train_data = tf.data.Dataset.from_generator(
-#     CSVDataset,
-#     args=[meta_train, 0, BATCH_SIZE],
-#     output_signature=(
-#         tf.TensorSpec(shape=(BATCH_SIZE, 320, 320, 3), dtype=tf.float32),
-#         tf.TensorSpec(shape=(BATCH_SIZE, 19206, 11), dtype=tf.float32),
-#     ),
-# ).prefetch(tf.data.AUTOTUNE)
-
-# test_data = CSVDataset(meta_test, None, BATCH_SIZE)
-# print("cardinality")
-# tf.data.experimental.cardinality(train_data)
-
 model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
 # checkpoints
-checkpoint_dir = "checkpoints/rv12_adam"
+checkpoint_dir = "checkpoints/rv12_dr_nedr"
 completed_epochs = 0
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 if latest is None:
@@ -129,7 +109,7 @@ model.compute_output_shape((1, 320, 320, 3))
 
 
 def representative_dataset():
-    data = train_data.take(10)
+    data = train_data.take(100)
     for image, label in data:
         yield [image]
 

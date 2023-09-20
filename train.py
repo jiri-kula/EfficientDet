@@ -129,14 +129,14 @@ model.compute_output_shape((1, 320, 320, 3))
 
 
 def representative_dataset():
-    data = train_data.take(1)
+    data = train_data.take(10)
     for image, label in data:
         yield [image]
 
 
 # def representative_dataset():
 #     for _ in range(100):
-#         data = 2.0 * np.random.rand(1, 320, 320, 3) - 1.0
+#         data = 255.0 * np.random.rand(1, 320, 320, 3)
 #         yield [data.astype(np.float32)]
 
 
@@ -156,11 +156,11 @@ converter.representative_dataset = representative_dataset
 converter.target_spec.supported_types = [tf.int8]
 # These set the input and output tensors to uint8 (added in r2.3)
 converter.experimental_new_converter = False
-# converter.target_spec.supported_ops = [
-# tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
-#     tf.lite.OpsSet.TFLITE_BUILTINS,
-# tf.lite.OpsSet.SELECT_TF_OPS,
-# ]
+converter.target_spec.supported_ops = [
+    tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
+    tf.lite.OpsSet.TFLITE_BUILTINS,
+    tf.lite.OpsSet.SELECT_TF_OPS,
+]
 converter.inference_input_type = tf.uint8  # or tf.uint8
 converter.inference_output_type = tf.uint8  # or tf.uint8
 tflite_model = converter.convert()
@@ -195,6 +195,7 @@ image_path = (
 raw_image = tf.io.read_file(image_path)
 image = tf.image.decode_image(raw_image, channels=3, dtype=tf.uint8)
 image = tf.expand_dims(image, axis=0)
+# image = tf.cast(image, tf.float32)
 interpreter.set_tensor(input["index"], image)
 
 interpreter.invoke()
@@ -219,3 +220,6 @@ retval[0, ianchor, :]
 # %%
 model.predict(images[0])
 # %%
+
+se = SamplesEncoder()
+se._anchors._compute_dims()

@@ -10,7 +10,7 @@ if EAGERLY:
 import datetime, os
 import numpy as np
 import keras
-from model.efficientdet import get_efficientdet, AngleMetric
+from model.efficientdet import EfficientDet
 from model.losses import EffDetLoss, AngleLoss
 from model.anchors import SamplesEncoder, Anchors
 from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
@@ -18,18 +18,23 @@ from model.utils import to_corners
 
 from dataset_api import ds2
 
-MODEL_NAME = "efficientdet_d0"
 
 NUM_CLASSES = 3
 
 EPOCHS = 300
 BATCH_SIZE = 4 if EAGERLY else 32
 
+model = EfficientDet(
+    channels=64,
+    num_classes=NUM_CLASSES,
+    num_anchors=9,
+    bifpn_depth=3,
+    heads_depth=3,
+    name="efficientdet_d0",
+    export_tflite=True,
+)
 
-model = get_efficientdet(MODEL_NAME, num_classes=NUM_CLASSES)
 model.var_freeze_expr = "efficientnet-lite0|resample_p6"
-
-# loss = EffDetLoss(num_classes=NUM_CLASSES)
 
 learning_rates = [2.5e-06, 0.000625, 0.00125, 0.0025, 0.00025, 2.5e-05]
 learning_rate_boundaries = [125, 250, 500, 240000, 360000]
@@ -112,7 +117,7 @@ model.compute_output_shape((1, 320, 320, 3))
 
 
 def representative_dataset():
-    data = train_data.take(10)
+    data = train_data.take(1)
     for image, label in data:
         yield [image]
 

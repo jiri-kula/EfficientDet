@@ -99,6 +99,7 @@ class EfficientDet(tf.keras.Model):
         box_depth_multiplier=1,
         backbone_name="efficientnet_b0",
         name="efficientdet_d0",
+        export_tflite=False,
     ):
         """Initialize EffDet. Default args refers to EfficientDet D0.
 
@@ -182,6 +183,8 @@ class EfficientDet(tf.keras.Model):
             depth_multiplier=box_depth_multiplier,
         )
 
+        self.export_tflite = export_tflite
+
     @property
     def metrics(self):
         # We list our `Metric` objects here so that `reset_states()` can be
@@ -242,13 +245,18 @@ class EfficientDet(tf.keras.Model):
             angles.append(tmp1)
 
         classes = tf.concat(classes, axis=1)
-        # classes = tf.keras.activations.sigmoid(
-        #     classes
-        # )  # uncomment this line before conversin to tflite, but comment out before training
 
         boxes = tf.concat(boxes, axis=1)
         angles = tf.concat(angles, axis=1)
 
+        if self.export_tflite:
+            # apply sigmoid transform on class predicitons
+            classes = tf.keras.activations.sigmoid(
+                classes
+            )  # uncomment this line before conversin to tflite, but comment out before training
+
+            # zero out boxes to check quantization of our model without boxes
+            # boxes = tf.where(tf.equal(boxes, 1.0), 0.0, 0.0)
         retval = tf.concat([boxes, angles, classes], axis=-1)
         return retval
 

@@ -2,7 +2,7 @@
 """Script for creating and training a new model."""
 import tensorflow as tf
 
-TFLITE_CONVERSION = False
+TFLITE_CONVERSION = True
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
 if EAGERLY:
@@ -151,7 +151,7 @@ converter.target_spec.supported_ops = [
     tf.lite.OpsSet.SELECT_TF_OPS,
 ]
 converter.inference_input_type = tf.uint8  # or tf.uint8
-converter.inference_output_type = tf.uint8  # or tf.uint8
+converter.inference_output_type = tf.float32  # or tf.uint8
 tflite_model = converter.convert()
 
 

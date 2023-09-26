@@ -1,8 +1,13 @@
 # %%
 """Script for creating and training a new model."""
+import tensorflow as tf
+
+EAGERLY = False
+tf.config.run_functions_eagerly(EAGERLY)
+if EAGERLY:
+    tf.data.experimental.enable_debug_mode()
 
 import datetime, os
-import tensorflow as tf
 import numpy as np
 import keras
 from model.efficientdet import get_efficientdet, AngleMetric
@@ -15,18 +20,16 @@ from dataset_api import ds2
 
 MODEL_NAME = "efficientdet_d0"
 
-NUM_CLASSES = 6
+NUM_CLASSES = 3
 
 EPOCHS = 300
-EAGERLY = False
-tf.config.run_functions_eagerly(EAGERLY)
-BATCH_SIZE = 1 if EAGERLY else 64
+BATCH_SIZE = 4 if EAGERLY else 32
 
 
 model = get_efficientdet(MODEL_NAME, num_classes=NUM_CLASSES)
 model.var_freeze_expr = "efficientnet-lite0|resample_p6"
 
-loss = EffDetLoss(num_classes=NUM_CLASSES)
+# loss = EffDetLoss(num_classes=NUM_CLASSES)
 
 learning_rates = [2.5e-06, 0.000625, 0.00125, 0.0025, 0.00025, 2.5e-05]
 learning_rate_boundaries = [125, 250, 500, 240000, 360000]
@@ -38,7 +41,7 @@ optimizer = tf.keras.optimizers.SGD()  # (learning_rate=0.001, momentum=0.9)
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
     # optimizer=optimizer,
-    loss=loss,
+    loss=None,
     run_eagerly=EAGERLY,
     # metrics = [] see train_step of efficientdet
 )
@@ -48,7 +51,7 @@ model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
 # checkpoints
-checkpoint_dir = "checkpoints/rv12_dr_nedr"
+checkpoint_dir = "checkpoints/rv12_3_class-all"
 completed_epochs = 0
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 if latest is None:
@@ -68,7 +71,7 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     save_best_only=True,
 )
 
-train_data = ds2.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+train_data = ds2.shuffle(500).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 # %%
 
@@ -109,7 +112,7 @@ model.compute_output_shape((1, 320, 320, 3))
 
 
 def representative_dataset():
-    data = train_data.take(100)
+    data = train_data.take(10)
     for image, label in data:
         yield [image]
 

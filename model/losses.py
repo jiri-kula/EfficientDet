@@ -132,7 +132,7 @@ class EffDetLoss(tf.keras.losses.Loss):
             delta: a float number representing a threshold in Huber loss
                 for choosing between linear and cubic loss.
         """
-        super().__init__(name=name)
+        super().__init__(name=name, reduction=tf.keras.losses.Reduction.NONE)
         self.class_loss = FocalLoss(
             alpha=alpha, gamma=gamma, label_smoothing=label_smoothing
         )
@@ -195,30 +195,8 @@ class EffDetLoss(tf.keras.losses.Loss):
         box_loss = tf.math.divide_no_nan(tf.reduce_sum(box_loss, axis=-1), normalizer)
         ang_loss = tf.math.divide_no_nan(tf.reduce_sum(ang_loss, axis=-1), normalizer)
 
-        # clf_loss
-        loss = clf_loss + box_loss + ang_loss
+        # loss = clf_loss + box_loss + ang_loss
 
-        # tf.print(
-        #     [
-        #         tf.reduce_mean(clf_loss),
-        #         tf.reduce_mean(box_loss),
-        #         tf.reduce_mean(ang_loss),
-        #     ]
-        # )
+        retval = tf.reduce_mean(tf.stack([box_loss, ang_loss, clf_loss]), axis=-1)
 
-        # tf.print(
-        #     " clf: ",
-        #     tf.reduce_mean(clf_loss),
-        #     "box: ",
-        #     tf.reduce_mean(box_loss),
-        #     "ang: ",
-        #     tf.reduce_mean(ang_loss),
-        # )
-
-        # self.last_clf_loss = tf.reduce_mean(clf_loss)
-        # self.last_box_loss = tf.reduce_mean(box_loss)
-        # self.last_ang_loss = tf.reduce_mean(ang_loss)
-
-        # assert len(tf.where(loss == 0)) == 0
-
-        return loss
+        return retval

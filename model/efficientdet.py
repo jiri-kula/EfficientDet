@@ -5,6 +5,7 @@ from .layers import BiFPN, ClassDetector, BoxRegressor, AngleRegressor
 from .backbone import get_backbone
 import tensorflow_hub as hub
 import re
+from .losses import EffDetLoss
 
 
 # https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
@@ -131,6 +132,12 @@ class EfficientDet(tf.keras.Model):
 
         self.var_freeze_expr = None
         self.loss_tracker = tf.metrics.Mean(name="loss")
+        self.box_tracker = tf.metrics.Mean(name="box")
+        self.angle_tracker = tf.metrics.Mean(name="angle")
+        self.class_tracker = tf.metrics.Mean(name="class")
+
+        self.loss_comp = EffDetLoss(num_classes=3)
+
         self.angle_metric = AngleMetric()
         self.mean_angle_metric = tf.metrics.Mean(name="mean_angle_metric")
 
@@ -170,7 +177,7 @@ class EfficientDet(tf.keras.Model):
         self.angle_reg = AngleRegressor(
             channels=channels,
             num_anchors=num_anchors,
-            depth=heads_depth,
+            depth=heads_depth * 2,
             kernel_size=box_kernel_size,
             depth_multiplier=box_depth_multiplier,
         )
@@ -184,6 +191,9 @@ class EfficientDet(tf.keras.Model):
         # `reset_states()` yourself at the time of your choosing.
         return [
             self.loss_tracker,
+            self.box_tracker,
+            self.angle_tracker,
+            self.class_tracker
             # self.angle_metric
         ]
 
@@ -232,9 +242,9 @@ class EfficientDet(tf.keras.Model):
             angles.append(tmp1)
 
         classes = tf.concat(classes, axis=1)
-        classes = tf.keras.activations.sigmoid(
-            classes
-        )  # uncomment this line before conversin to tflite, but comment out before training
+        # classes = tf.keras.activations.sigmoid(
+        #     classes
+        # )  # uncomment this line before conversin to tflite, but comment out before training
 
         boxes = tf.concat(boxes, axis=1)
         angles = tf.concat(angles, axis=1)
@@ -260,7 +270,11 @@ class EfficientDet(tf.keras.Model):
             y_pred = self(x, training=True)  # Forward pass
             # Compute the loss value
             # (the loss function is configured in `compile()`)
-            loss = self.compute_loss(y=y, y_pred=y_pred)
+            # box_loss, angle_loss, class_loss = self.compute_loss(y=y, y_pred=y_pred)
+            # loss = box_loss + angle_loss + class_loss
+            # losses = self.compute_loss(y=y, y_pred=y_pred)
+            losses = self.loss_comp(y, y_pred)
+            loss = tf.reduce_sum(losses)
 
         # Compute gradients
         trainable_vars = self._freeze_vars()
@@ -272,7 +286,13 @@ class EfficientDet(tf.keras.Model):
             if metric.name == "loss":
                 metric.update_state(loss)
             else:
-                metric.update_state(y, y_pred)
+                if metric.name == "box":
+                    metric.update_state(losses[0])
+                elif metric.name == "angle":
+                    metric.update_state(losses[1])
+                elif metric.name == "class":
+                    metric.update_state(losses[2])
+                # metric.update_state(y, y_pred)
 
         # self.angle_metric.update_state(y_true=y, y_pred=y_pred)
         # Return a dict mapping metric names to current value

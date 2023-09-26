@@ -1,7 +1,7 @@
 # %%
 import pandas as pd
 
-meta_train = "/mnt/c/Edwards/rv5/Output/hala_ruka_6D_aug.csv"
+meta_train = "/mnt/c/Edwards/annotation/RV12/merge-all.csv"
 
 column_names = [
     "PURPOSE",
@@ -25,7 +25,7 @@ df = pd.read_csv(meta_train, header=None, names=column_names)
 
 # %%
 # drazky, které jsou špatně anotované jako osa x směrem ke kameře
-drazka = df["OBJECT"].str.contains("ne") == False
+drazka = df["PATH"].str.contains("ne") == False
 nedrazka = ~drazka
 
 drazkou_od_kamery = df["R31"].gt(0.0)

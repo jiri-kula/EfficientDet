@@ -4,7 +4,7 @@ import numpy as np
 
 from sklearn.cluster import KMeans
 
-meta_train = "/mnt/c/Edwards/rot_anot/RV12/drazka/drazka_rv12/meta.csv"
+meta_train = "/mnt/c/Edwards/annotation/RV12/merge_3_class.csv"
 
 column_names = [
     "PURPOSE",

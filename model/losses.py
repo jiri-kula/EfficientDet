@@ -79,7 +79,7 @@ class AngleLoss(tf.keras.losses.Loss):
         super().__init__(name=name, reduction="none")
         self.delta = delta
 
-    def call(self, y_true, y_pred):
+    def call(self, angle_labels, angle_preds):
         """Calculate Huber loss.
 
         Args:
@@ -90,23 +90,24 @@ class AngleLoss(tf.keras.losses.Loss):
             A float tensor with shape (batch_size, num_anchor_boxes) with
             loss value for every anchor box.
         """
-        # loss = tf.abs(y_true - y_pred)
-        # l1 = self.delta * (loss - 0.5 * self.delta)
-        # l2 = 0.5 * loss**2
-        # ang_loss = tf.where(tf.less(loss, self.delta), l2, l1)
 
-        # # self.loss_rxx = tf.reduce_mean(ang_loss, 0)
+        r1_pred = angle_preds[..., :3]
+        r1_true = angle_labels[..., :3]
 
-        # agg = tf.reduce_sum(ang_loss, axis=-1)
+        proj1 = tf.reduce_sum(
+            tf.multiply(r1_pred, r1_true), -1
+        )  # dot prod of true and pred vectors
 
-        # return agg
+        r2_pred = angle_preds[..., 3:]
+        r2_true = angle_labels[..., 3:]
 
-        loss = y_true - y_pred
-        # l2_loss = loss * loss
+        proj2 = tf.reduce_sum(
+            tf.multiply(r2_pred, r2_true), -1
+        )  # dot prod of true and pred vectors
 
-        mse = tf.reduce_sum(tf.abs(loss), axis=-1)
+        loss = 2.0 - (proj1 + proj2) / 2.0
 
-        return mse
+        return loss
 
 
 class EffDetLoss(tf.keras.losses.Loss):

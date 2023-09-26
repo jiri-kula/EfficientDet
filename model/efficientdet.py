@@ -144,7 +144,6 @@ class EfficientDet(tf.keras.Model):
         self.angle_loss = AngleLoss(delta=delta)
         self.class_loss = FocalLoss(alpha=0.25, gamma=1.5, label_smoothing=0.1)
 
-        self.angle_metric = AngleMetric()
         self.mean_angle_metric = tf.metrics.Mean(name="mean_angle_metric")
 
         # self.backbone = get_backbone(backbone_name)
@@ -201,8 +200,7 @@ class EfficientDet(tf.keras.Model):
             self.loss_tracker,
             self.box_tracker,
             self.angle_tracker,
-            self.class_tracker
-            # self.angle_metric
+            self.class_tracker,
         ]
 
     def call(self, inputs, training=False):
@@ -335,7 +333,6 @@ class EfficientDet(tf.keras.Model):
                     metric.update_state(losses[2])
                 # metric.update_state(y, y_pred)
 
-        # self.angle_metric.update_state(y_true=y, y_pred=y_pred)
         # Return a dict mapping metric names to current value
         return {m.name: m.result() for m in self.metrics}
         # return {"loss": self.metrics[0], "angle": self.angle_metric.result()}

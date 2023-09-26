@@ -2,6 +2,7 @@
 """Script for creating and training a new model."""
 import tensorflow as tf
 
+TFLITE_CONVERSION = False
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
 if EAGERLY:
@@ -22,7 +23,7 @@ from dataset_api import ds2
 NUM_CLASSES = 3
 
 EPOCHS = 300
-BATCH_SIZE = 4 if EAGERLY else 32
+BATCH_SIZE = 4 if EAGERLY else 64
 
 model = EfficientDet(
     channels=64,
@@ -31,7 +32,7 @@ model = EfficientDet(
     bifpn_depth=3,
     heads_depth=3,
     name="efficientdet_d0",
-    export_tflite=True,
+    export_tflite=TFLITE_CONVERSION,
 )
 
 model.var_freeze_expr = "efficientnet-lite0|resample_p6"
@@ -56,7 +57,7 @@ model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
 # checkpoints
-checkpoint_dir = "checkpoints/rv12_3_class-all"
+checkpoint_dir = "checkpoints/rv12_3_output"
 completed_epochs = 0
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 if latest is None:
@@ -162,7 +163,9 @@ with open("model.tflite", "wb") as f:
 # %%
 interpreter = tf.lite.Interpreter("model.tflite")
 input = interpreter.get_input_details()[0]  # Model has single input.
-output = interpreter.get_output_details()[0]
+output_boxes = interpreter.get_output_details()[0]  # Model has 3 outputs
+output_angles = interpreter.get_output_details()[1]  # Model has 3 outputs
+output_classes = interpreter.get_output_details()[2]  # Model has 3 outputs
 interpreter.allocate_tensors()  # Needed before execution!¨
 
 # constant input
@@ -187,11 +190,11 @@ image = tf.expand_dims(image, axis=0)
 interpreter.set_tensor(input["index"], image)
 
 interpreter.invoke()
-retval = interpreter.get_tensor(output["index"])
+retval = interpreter.get_tensor(output_boxes["index"])
 retval[0, ...]
 
 # dequantize
-scales = output["quantization_parameters"]["scales"]
+scales = output_boxes["quantization_parameters"]["scales"]
 scale = scales[0] if len(scales) > 0 else 1.0
 
 zero_points = output["quantization_parameters"]["zero_points"]

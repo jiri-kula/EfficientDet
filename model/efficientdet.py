@@ -5,7 +5,7 @@ from .layers import BiFPN, ClassDetector, BoxRegressor, AngleRegressor
 from .backbone import get_backbone
 import tensorflow_hub as hub
 import re
-from .losses import EffDetLoss
+from .losses import BoxLoss, AngleLoss, FocalLoss
 
 
 # https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
@@ -137,7 +137,12 @@ class EfficientDet(tf.keras.Model):
         self.angle_tracker = tf.metrics.Mean(name="angle")
         self.class_tracker = tf.metrics.Mean(name="class")
 
-        self.loss_comp = EffDetLoss(num_classes=3)
+        # self.loss_comp = EffDetLoss(num_classes=3)
+
+        delta = 1.0
+        self.box_loss = BoxLoss(delta=delta)
+        self.angle_loss = AngleLoss(delta=delta)
+        self.class_loss = FocalLoss(alpha=0.25, gamma=1.5, label_smoothing=0.1)
 
         self.angle_metric = AngleMetric()
         self.mean_angle_metric = tf.metrics.Mean(name="mean_angle_metric")
@@ -178,7 +183,7 @@ class EfficientDet(tf.keras.Model):
         self.angle_reg = AngleRegressor(
             channels=channels,
             num_anchors=num_anchors,
-            depth=heads_depth * 2,
+            depth=heads_depth,
             kernel_size=box_kernel_size,
             depth_multiplier=box_depth_multiplier,
         )
@@ -257,8 +262,9 @@ class EfficientDet(tf.keras.Model):
 
             # zero out boxes to check quantization of our model without boxes
             # boxes = tf.where(tf.equal(boxes, 1.0), 0.0, 0.0)
-        retval = tf.concat([boxes, angles, classes], axis=-1)
-        return retval
+        # retval = tf.concat([boxes, angles, classes], axis=-1)
+        # return retval
+        return boxes, angles, classes
 
     def _freeze_vars(self):
         if self.var_freeze_expr:
@@ -272,16 +278,43 @@ class EfficientDet(tf.keras.Model):
     def train_step(self, data):
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.
-        x, y = data
+        x, y_true = data
 
         with tf.GradientTape() as tape:
-            y_pred = self(x, training=True)  # Forward pass
-            # Compute the loss value
-            # (the loss function is configured in `compile()`)
-            # box_loss, angle_loss, class_loss = self.compute_loss(y=y, y_pred=y_pred)
-            # loss = box_loss + angle_loss + class_loss
-            # losses = self.compute_loss(y=y, y_pred=y_pred)
-            losses = self.loss_comp(y, y_pred)
+            box_preds, angle_preds, cls_preds = self(x, training=True)  # Forward pass
+            # losses = self.loss_comp(y, y_pred)
+            box_labels = y_true[..., :4]
+            angle_labels = y_true[..., 4:10]
+            cls_labels = tf.one_hot(
+                tf.cast(y_true[..., 10], dtype=tf.int32),
+                depth=self.class_det.num_classes,
+                dtype=tf.float32,
+            )
+
+            positive_mask = tf.cast(tf.greater(y_true[..., 10], -1.0), dtype=tf.float32)
+            ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
+
+            clf_loss = self.class_loss(cls_labels, cls_preds)
+            box_loss = self.box_loss(box_labels, box_preds)
+            ang_loss = self.angle_loss(angle_labels, angle_preds)
+
+            clf_loss = tf.where(tf.equal(ignore_mask, 1.0), 0.0, clf_loss)
+            box_loss = tf.where(tf.equal(positive_mask, 1.0), box_loss, 0.0)
+            ang_loss = tf.where(tf.equal(positive_mask, 1.0), ang_loss, 0.0)
+
+            normalizer = tf.reduce_sum(positive_mask, axis=-1)
+            clf_loss = tf.math.divide_no_nan(
+                tf.reduce_sum(clf_loss, axis=-1), normalizer
+            )
+            box_loss = tf.math.divide_no_nan(
+                tf.reduce_sum(box_loss, axis=-1), normalizer
+            )
+            ang_loss = tf.math.divide_no_nan(
+                tf.reduce_sum(ang_loss, axis=-1), normalizer
+            )
+
+            losses = tf.reduce_mean(tf.stack([box_loss, ang_loss, clf_loss]), axis=-1)
+
             loss = tf.reduce_sum(losses)
 
         # Compute gradients

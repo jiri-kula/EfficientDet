@@ -41,3 +41,14 @@ By tflite model maker
 See comments in `def postprocess_tflite(params, cls_outputs, box_outputs):`
 
 https://keras.io/examples/vision/retinanet/
+
+# Rotation
+/home/jiri/EfficientDet/model/rotation.py in line 7
+      40 # %%
+      41 # see
+      42 # [1] https://www.tensorflow.org/api_docs/python/tf/linalg/matmul
+      43 # [2] https://math.stackexchange.com/questions/744736/rotation-matrix-to-axis-angle
+      45 a = 10.0 / 180.0 * 3.14
+----> 46 R = Rx(0.0) @ Ry(0.0) @ Rz(0.0)  # if label rotation
+      47 Q = Rx(0.0) @ Ry(0.0) @ Rz(a)  # and predicted rotation differ by angle a
+     49 QT = tf.transpose(Q)

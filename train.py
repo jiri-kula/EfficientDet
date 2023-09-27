@@ -2,7 +2,7 @@
 """Script for creating and training a new model."""
 import tensorflow as tf
 
-TFLITE_CONVERSION = True
+TFLITE_CONVERSION = False
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
 if EAGERLY:
@@ -19,11 +19,10 @@ from model.utils import to_corners
 
 from dataset_api import ds2
 
-
 NUM_CLASSES = 3
 
 EPOCHS = 300
-BATCH_SIZE = 4 if EAGERLY else 64
+BATCH_SIZE = 4 if EAGERLY else 32
 
 model = EfficientDet(
     channels=64,
@@ -37,19 +36,10 @@ model = EfficientDet(
 
 model.var_freeze_expr = "efficientnet-lite0|resample_p6"
 
-learning_rates = [2.5e-06, 0.000625, 0.00125, 0.0025, 0.00025, 2.5e-05]
-learning_rate_boundaries = [125, 250, 500, 240000, 360000]
-learning_rate_fn = tf.optimizers.schedules.PiecewiseConstantDecay(
-    boundaries=learning_rate_boundaries, values=learning_rates
-)
-optimizer = tf.keras.optimizers.SGD()  # (learning_rate=0.001, momentum=0.9)
-
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-    # optimizer=optimizer,
     loss=None,
     run_eagerly=EAGERLY,
-    # metrics = [] see train_step of efficientdet
 )
 
 # %%
@@ -57,7 +47,7 @@ model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
 # checkpoints
-checkpoint_dir = "checkpoints/rv12_3_output"
+checkpoint_dir = "checkpoints/drazka-rotation-3"
 completed_epochs = 0
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 if latest is None:
@@ -118,7 +108,7 @@ model.compute_output_shape((1, 320, 320, 3))
 
 
 def representative_dataset():
-    data = train_data.take(1)
+    data = train_data.take(10)
     for image, label in data:
         yield [image]
 
@@ -190,15 +180,9 @@ image = tf.expand_dims(image, axis=0)
 interpreter.set_tensor(input["index"], image)
 
 interpreter.invoke()
-retval = interpreter.get_tensor(output_boxes["index"])
+boxes = interpreter.get_tensor(output_boxes["index"])
 retval[0, ...]
 
-# dequantize
-scales = output_boxes["quantization_parameters"]["scales"]
-scale = scales[0] if len(scales) > 0 else 1.0
-
-zero_points = output["quantization_parameters"]["zero_points"]
-zero_point = zero_points[0].astype(np.float32) if len(zero_points) > 0 else 0.0
 
 retval = retval.astype(np.float32)
 real = (retval - zero_point) * scale

@@ -69,45 +69,57 @@ class BoxLoss(tf.keras.losses.Loss):
         l1 = self.delta * (loss - 0.5 * self.delta)
         l2 = 0.5 * loss**2
         box_loss = tf.where(tf.less(loss, self.delta), l2, l1)
-        return tf.reduce_sum(box_loss, axis=-1)
+        loss = tf.reduce_sum(box_loss, axis=-1)
+        return loss
 
 
 class AngleLoss(tf.keras.losses.Loss):
-    """Huber loss implementation."""
+    """SAE implementation."""
 
     def __init__(self, delta=1.0, name="angle_loss"):
         super().__init__(name=name, reduction="none")
-        self.delta = delta
 
     def call(self, angle_labels, angle_preds):
-        """Calculate Huber loss.
+        num_anchors = angle_labels.shape[1]
 
-        Args:
-            y_true: a tensor of ground truth values with shape (batch_size, num_anchor_boxes, 1).
-            y_pred: a tensor of predicted values with shape (batch_size, num_anchor_boxes, 1).
-
-        Returns:
-            A float tensor with shape (batch_size, num_anchor_boxes) with
-            loss value for every anchor box.
-        """
-
+        # construct Predicted rotation matrix
         r1_pred = angle_preds[..., :3]
-        r1_true = angle_labels[..., :3]
-
-        proj1 = tf.reduce_sum(
-            tf.multiply(r1_pred, r1_true), -1
-        )  # dot prod of true and pred vectors
-
         r2_pred = angle_preds[..., 3:]
+        r3_pred = tf.linalg.cross(r1_pred, r2_pred)
+
+        P = tf.concat([r1_pred, r2_pred, r3_pred], axis=-1)
+        P = tf.reshape(P, (-1, num_anchors, 3, 3))
+        P = tf.transpose(P, perm=[0, 1, 3, 2])  # so that r1, r2, r3 form columns
+
+        # construct Labeled rotation matrix
+        r1_true = angle_labels[..., :3]
         r2_true = angle_labels[..., 3:]
+        r3_true = tf.linalg.cross(r1_true, r2_true)
+        L = tf.concat([r1_true, r2_true, r3_true], axis=-1)
+        L = tf.reshape(L, (-1, num_anchors, 3, 3))
+        L = tf.transpose(L, perm=[0, 1, 3, 2])  # so that r1, r2, r3 form columns
 
-        proj2 = tf.reduce_sum(
-            tf.multiply(r2_pred, r2_true), -1
-        )  # dot prod of true and pred vectors
+        # difference matrix between Predicted and Labeled rotation
+        LT = tf.transpose(L, perm=[0, 1, 3, 2])  # TODO: remove double transpose
+        Q = P @ LT  # checked ok as np.dot(P, LT)
 
-        loss = 2.0 - (proj1 + proj2) / 2.0
+        # we want the angle between rotations to be zero
+        TrQ = (tf.linalg.trace(Q) - 1.0) / 2.0
 
-        return loss
+        # numerator = (TrQ - 1) / 2.0
+        # numerator = tf.where(numerator > 1.0, 1.0, numerator)
+        # numerator = tf.where(numerator < -1.0, -1.0, numerator)
+        TrQ = tf.clip_by_value(TrQ, clip_value_min=-0.99, clip_value_max=0.99)
+
+        theta = tf.acos(TrQ)  # [0, pi]
+
+        # axis of difference rotation not computed here
+
+        # Reference:
+        # [1] https://www.tensorflow.org/api_docs/python/tf/linalg/matmul
+        # [2] https://math.stackexchange.com/questions/744736/rotation-matrix-to-axis-angle
+
+        return theta
 
 
 class EffDetLoss(tf.keras.losses.Loss):
@@ -137,14 +149,8 @@ class EffDetLoss(tf.keras.losses.Loss):
         self.class_loss = FocalLoss(
             alpha=alpha, gamma=gamma, label_smoothing=label_smoothing
         )
-        # self.class_loss = tf.losses.CategoricalCrossentropy(
-        #     reduction=tf.losses.Reduction.NONE
-        # )
-        # self.class_loss = tf.keras.losses.CategoricalFocalCrossentropy(
-        #     reduction=tf.losses.Reduction.NONE
-        # )
         self.box_loss = BoxLoss(delta=delta)
-        self.angle_loss = AngleLoss(delta=delta)
+        self.angle_loss = tf.keras.losses.MeanSquaredError()
         self.num_classes = num_classes
 
     @tf.autograph.experimental.do_not_convert

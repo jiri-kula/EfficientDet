@@ -437,14 +437,14 @@ class AngleRegressor(tf.keras.layers.Layer):
         #     tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
         #     for i in range(depth)
         # ]
-        self.act = tf.keras.layers.Activation(tf.nn.relu)
+        self.act = tf.keras.layers.Activation(tf.nn.tanh)
 
         self.angles = tf.keras.layers.SeparableConv2D(
             6 * num_anchors,  # r13, r23
             kernel_size,
             padding="same",
             depth_multiplier=depth_multiplier,
-            activation=tf.keras.layers.Activation(None),
+            activation=tf.keras.layers.Activation(tf.nn.tanh),
             pointwise_initializer=tf.initializers.variance_scaling(),
             depthwise_initializer=tf.initializers.variance_scaling(),
             bias_initializer=tf.zeros_initializer(),
@@ -486,11 +486,5 @@ class AngleRegressor(tf.keras.layers.Layer):
         r2 = tf.nn.l2_normalize(v2 - self.dot(r1, v2) * r1, axis=-1)
 
         x = tf.concat([r1, r2], axis=-1)
-
-        # self.add_metric(
-        #     mean_angle_btw_vectors(inputs, self.get_rotated(x)),
-        #     name="mean_angular_distance",
-        #     aggregation="mean",
-        # )
 
         return x

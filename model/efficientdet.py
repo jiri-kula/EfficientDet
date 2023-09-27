@@ -280,7 +280,8 @@ class EfficientDet(tf.keras.Model):
 
         with tf.GradientTape() as tape:
             box_preds, angle_preds, cls_preds = self(x, training=True)  # Forward pass
-            # losses = self.loss_comp(y, y_pred)
+
+            # extract the three labels
             box_labels = y_true[..., :4]
             angle_labels = y_true[..., 4:10]
             cls_labels = tf.one_hot(
@@ -289,17 +290,21 @@ class EfficientDet(tf.keras.Model):
                 dtype=tf.float32,
             )
 
+            # filter anchor boxes
             positive_mask = tf.cast(tf.greater(y_true[..., 10], -1.0), dtype=tf.float32)
             ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
 
+            # loss for each anchor
             clf_loss = self.class_loss(cls_labels, cls_preds)
             box_loss = self.box_loss(box_labels, box_preds)
             ang_loss = self.angle_loss(angle_labels, angle_preds)
 
+            # zero out irrelevant anchors
             clf_loss = tf.where(tf.equal(ignore_mask, 1.0), 0.0, clf_loss)
             box_loss = tf.where(tf.equal(positive_mask, 1.0), box_loss, 0.0)
             ang_loss = tf.where(tf.equal(positive_mask, 1.0), ang_loss, 0.0)
 
+            # average loss across samples so that there remains a scalar loss for each batch
             normalizer = tf.reduce_sum(positive_mask, axis=-1)
             clf_loss = tf.math.divide_no_nan(
                 tf.reduce_sum(clf_loss, axis=-1), normalizer
@@ -311,8 +316,10 @@ class EfficientDet(tf.keras.Model):
                 tf.reduce_sum(ang_loss, axis=-1), normalizer
             )
 
+            # average loss across batches so that remains a scalar loss for each (box, angle, class)
             losses = tf.reduce_mean(tf.stack([box_loss, ang_loss, clf_loss]), axis=-1)
 
+            # let total loss be a sum of particular losses = box + angle + class
             loss = tf.reduce_sum(losses)
 
         # Compute gradients

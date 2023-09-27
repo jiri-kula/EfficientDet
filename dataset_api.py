@@ -22,7 +22,7 @@ column_names = [
     "R32",
 ]
 
-meta_train = "/mnt/c/Edwards/annotation/RV12/merge-all.csv"
+meta_train = "/mnt/c/Edwards/annotation/RV12/drazka-rotation-3/nedrazka_rv12/meta.csv"
 df = pd.read_csv(meta_train, header=None, names=column_names)
 df.head()
 
@@ -58,7 +58,7 @@ def get_boxes(item):
 
 
 # TODO: multiple objects in one image
-@tf.function
+# @tf.function
 def process(item):
     labels_map = ["rv5", "rv8", "rv12"]
 
@@ -85,9 +85,8 @@ def process(item):
 
 ds2 = dataset.map(process)
 
-BATCH_SIZE = 32
+# BATCH_SIZE = 32
 
-train_data = ds2.shuffle(5000)
-# train_data = train_data.padded_batch(BATCH_SIZE, padding_values=(0.0, 1e-8, -1.0))
-train_data = train_data.padded_batch(BATCH_SIZE)
-train_data = train_data.prefetch(tf.data.AUTOTUNE)
+# train_data = ds2.shuffle(5000)
+# train_data = train_data.padded_batch(BATCH_SIZE)
+# train_data = train_data.prefetch(tf.data.AUTOTUNE)

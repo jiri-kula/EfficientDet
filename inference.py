@@ -57,9 +57,9 @@ def make_prediction(
     an = Anchors()
     anchor_boxes = an.get_anchors(padded_image.shape[0], padded_image.shape[1])
 
-    preds = model.predict(tf.expand_dims(padded_image, axis=0))
+    boxes, angles, classes = model.predict(tf.expand_dims(padded_image, axis=0))
 
-    boxes = preds[..., :4] * box_variance
+    boxes = boxes * box_variance
     boxes = tf.concat(
         [
             boxes[..., :2] * anchor_boxes[..., 2:] + anchor_boxes[..., :2],
@@ -68,8 +68,7 @@ def make_prediction(
         axis=-1,
     )
     boxes = to_corners(boxes)
-    angles = preds[..., 4:10]
-    classes = tf.nn.sigmoid(preds[..., 10:])
+    classes = tf.nn.sigmoid(classes)
 
     valid_dets = 0
     while valid_dets < 1 and score_threshold > 0:

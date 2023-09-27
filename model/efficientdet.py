@@ -12,74 +12,6 @@ from .losses import BoxLoss, AngleLoss, FocalLoss
 # @tf.function
 
 
-class AngleMetric(tf.keras.metrics.Metric):
-    def __init__(self, name="angle_alignment", **kwargs):
-        super(AngleMetric, self).__init__(name=name, **kwargs)
-        self.batch_metric = []
-        self.count = 0
-
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        class_label = y_true[..., 10]
-
-        angle_labels = y_true[..., 4:10]
-        angle_preds = y_pred[..., 4:10]
-
-        loss = angle_labels - angle_preds
-
-        positive_mask = tf.cast(tf.greater(class_label, -1.0), tf.float32)
-
-        r1_pred = angle_preds[..., :3]
-        r1_true = angle_labels[..., :3]
-
-        proj1 = tf.reduce_sum(
-            tf.multiply(r1_pred, r1_true), -1
-        )  # dot prod of true and pred vectors
-
-        r2_pred = angle_preds[..., 3:]
-        r2_true = angle_labels[..., 3:]
-
-        proj2 = tf.reduce_sum(
-            tf.multiply(r2_pred, r2_true), -1
-        )  # dot prod of true and pred vectors
-
-        q = tf.where(
-            positive_mask == 1.0, (proj1 + proj2) / 2.0, 0.0
-        )  # zero out non-relevat
-
-        # we want all projections to be 1 (fit)
-
-        normalizer = tf.reduce_sum(positive_mask, axis=-1)
-
-        sample_metric = tf.math.divide_no_nan(tf.reduce_sum(q, axis=-1), normalizer)
-
-        batch_metric = tf.reduce_mean(sample_metric, name="angle_sample_metric")
-        # self.set_count(self.get_count() + 1)
-
-        # self.batch_metric = (
-        #     self.get_metric() * (self.get_count() - 1) + batch_metric
-        # ) / self.get_count()
-
-        # self.count += 1
-        # a = tf.multiply(self.batch_metric, (self.count - 1))
-        # b = tf.add(a, batch_metric)
-        # c = self.count
-        # self.batch_metric = b / c
-        self.batch_metric.append(batch_metric)
-        self.count = tf.reduce_mean(self.batch_metric)
-
-    def result(self):
-        return self.count
-
-    def get_count(self):
-        return self.count
-
-    def set_count(self, val):
-        self.count = val
-
-    def get_metric(self):
-        return self.count
-
-
 class EfficientDet(tf.keras.Model):
     """EfficientDet model."""
 
@@ -343,24 +275,3 @@ class EfficientDet(tf.keras.Model):
         # Return a dict mapping metric names to current value
         return {m.name: m.result() for m in self.metrics}
         # return {"loss": self.metrics[0], "angle": self.angle_metric.result()}
-
-
-def get_efficientdet(name="efficientdet_d0", num_classes=80, num_anchors=9):
-    models = {
-        "efficientdet_d0": (64, 3, 3, "efficientnet_b0"),
-        "efficientdet_d1": (88, 4, 3, "efficientnet_b1"),
-        "efficientdet_d2": (112, 5, 3, "efficientnet_b2"),
-        "efficientdet_d3": (160, 6, 4, "efficientnet_b3"),
-        "efficientdet_d4": (224, 7, 4, "efficientnet_b4"),
-        "efficientdet_d5": (288, 7, 4, "efficientnet_b5"),
-        "efficientdet_d6": (384, 8, 5, "efficientnet_b6"),
-        "efficientdet_d7": (384, 8, 5, "efficientnet_b7"),
-    }
-    return EfficientDet(
-        channels=models[name][0],
-        num_classes=num_classes,
-        num_anchors=num_anchors,
-        bifpn_depth=models[name][1],
-        heads_depth=models[name][2],
-        name=name,
-    )

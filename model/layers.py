@@ -437,7 +437,7 @@ class AngleRegressor(tf.keras.layers.Layer):
         #     tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
         #     for i in range(depth)
         # ]
-        self.act = tf.keras.layers.Activation(tf.nn.tanh)
+        self.act = tf.keras.layers.Activation(tf.nn.silu)
 
         self.angles = tf.keras.layers.SeparableConv2D(
             6 * num_anchors,  # r13, r23
@@ -453,18 +453,6 @@ class AngleRegressor(tf.keras.layers.Layer):
 
     def dot(self, a, b):
         return tf.reduce_sum(a * b, axis=-1, keepdims=True)
-
-    def get_rotation_matrix(self, x):
-        c1 = x[:, :, :3]
-        c2 = x[:, :, 3:]
-        c3 = tf.linalg.cross(c1, c2)
-        return tf.stack([c1, c2, c3], axis=2)
-
-    def get_rotated(self, repr_6d):
-        init_v = tf.constant(INIT_AXES, dtype=tf.float32)
-        Rs = self.get_rotation_matrix(repr_6d)
-        y_pred = tf.transpose(tf.matmul(Rs, tf.transpose(init_v)), [0, 2, 1])
-        return y_pred
 
     def call(self, inputs, training=False):
         for i in range(self.depth):

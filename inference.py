@@ -4,9 +4,9 @@ import argparse
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
-from model.efficientdet import get_efficientdet
 from model.anchors import Anchors
 from model.utils import to_corners, resize_and_pad
+from model.efficientdet import EfficientDet
 
 IMG_SIZE = 320
 
@@ -153,7 +153,14 @@ def make_prediction(
 
 args = parser.parse_args()
 
-model = get_efficientdet(args.n, num_classes=args.c, num_anchors=args.a)
+model = EfficientDet(
+    channels=64,
+    num_classes=args.c,
+    num_anchors=9,
+    bifpn_depth=3,
+    heads_depth=3,
+    name="efficientdet_d0",
+)
 model.build(input_shape=(1, IMG_SIZE, IMG_SIZE, 3))
 model.load_weights(args.w)
 

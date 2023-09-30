@@ -22,7 +22,7 @@ column_names = [
     "R32",
 ]
 
-meta_train = "/mnt/c/Edwards/annotation/RV12/drazka-rotation-3/nedrazka_rv12/meta.csv"
+meta_train = "/mnt/c/Edwards/annotation/RV12/drazka-nedrazka-balanced.csv"
 df = pd.read_csv(meta_train, header=None, names=column_names)
 df.head()
 

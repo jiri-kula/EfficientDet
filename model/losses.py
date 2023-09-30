@@ -101,17 +101,20 @@ class AngleLoss(tf.keras.losses.Loss):
 
         # difference matrix between Predicted and Labeled rotation
         LT = tf.transpose(L, perm=[0, 1, 3, 2])  # TODO: remove double transpose
-        Q = P @ LT  # checked ok as np.dot(P, LT)
+
+        # checked ok as np.dot(P, LT), this is rotation from labels to predictions, which
+        # we want to be an Identity matrix, ideally.
+        Q = P @ LT
 
         # we want the angle between rotations to be zero
-        TrQ = (tf.linalg.trace(Q) - 1.0) / 2.0
+        TrQ = tf.linalg.trace(Q)
 
-        # numerator = (TrQ - 1) / 2.0
-        # numerator = tf.where(numerator > 1.0, 1.0, numerator)
-        # numerator = tf.where(numerator < -1.0, -1.0, numerator)
-        TrQ = tf.clip_by_value(TrQ, clip_value_min=-0.99, clip_value_max=0.99)
+        Q = tf.reshape(Q, (-1, num_anchors, 9))
+        S = tf.abs(Q)
 
-        theta = tf.acos(TrQ)  # [0, pi]
+        sum_of_all_elements = tf.reduce_sum(S, axis=-1)
+
+        loss = sum_of_all_elements - TrQ
 
         # axis of difference rotation not computed here
 
@@ -119,7 +122,7 @@ class AngleLoss(tf.keras.losses.Loss):
         # [1] https://www.tensorflow.org/api_docs/python/tf/linalg/matmul
         # [2] https://math.stackexchange.com/questions/744736/rotation-matrix-to-axis-angle
 
-        return theta
+        return loss
 
 
 class EffDetLoss(tf.keras.losses.Loss):

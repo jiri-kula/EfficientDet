@@ -73,7 +73,8 @@ class EfficientDet(tf.keras.Model):
 
         delta = 1.0
         self.box_loss = BoxLoss(delta=delta)
-        self.angle_loss = AngleLoss(delta=delta)
+        # self.angle_loss = tf.losses.
+        # AngleLoss(delta=delta)
         self.class_loss = FocalLoss(alpha=0.25, gamma=1.5, label_smoothing=0.1)
 
         self.mean_angle_metric = tf.metrics.Mean(name="mean_angle_metric")
@@ -229,7 +230,8 @@ class EfficientDet(tf.keras.Model):
             # loss for each anchor
             clf_loss = self.class_loss(cls_labels, cls_preds)
             box_loss = self.box_loss(box_labels, box_preds)
-            ang_loss = self.angle_loss(angle_labels, angle_preds)
+            # ang_loss = self.angle_loss(angle_labels, angle_preds)
+            ang_loss = tf.losses.MAE(angle_labels, angle_preds)
 
             # zero out irrelevant anchors
             clf_loss = tf.where(tf.equal(ignore_mask, 1.0), 0.0, clf_loss)

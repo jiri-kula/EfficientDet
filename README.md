@@ -5,7 +5,11 @@ Repository with my implementation of [EfficientDet](https://arxiv.org/abs/1911.0
 CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))
 CUPTI_PATH=/usr/local/cuda-12.2/targets/x86_64-linux/lib/
 export LD_LIBRARY_PATH=$CUDNN_PATH/lib:$CUPTI_PATH:$LD_LIBRARY_PATH
-python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"¨
+
+# Training checklist
+1. Check your data annotation `datacheck.py`
+2. Measure how to set anchor boxes `anchor_histogram.py`, modify `model/anchors.py` at *aspects* and *areas*.
 
 # CustomOp
 Object detection z tflite model maker: síť má na konci vrstvu `TFLite_Detection_PostProcess`, která je build-in v tflite. Podívej se na `tensorflow/tensorflow/lite/kernels/register.cc`.

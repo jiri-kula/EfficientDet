@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 
 
-meta_train = "/mnt/c/Edwards/annotation/RV12/merge-all.csv"
+meta_train = "/mnt/c/Edwards/annotation/RV12/robotic-3-4-aug.csv"
 
 column_names = [
     "PURPOSE",
@@ -54,7 +54,8 @@ areas = h * w
 good_areas = np.array(
     sorted(np.sqrt(kmeans.fit(areas.reshape(-1, 1)).cluster_centers_))
 ).reshape(1, -1)
-print("good_areas: ", good_areas)
+print("good_areas: ", np.round(good_areas))
+
 
 # aspects = w / h
 # %%
@@ -81,3 +82,20 @@ fit = kmeans.fit(a.reshape(-1, 1))
 
 aspects = np.array(sorted(fit.cluster_centers_)).reshape((1, -1))
 print("aspects: ", aspects)
+
+# %%
+
+
+def split(areas, N):
+    area_min = min(areas)
+    area_max = max(areas)
+    h = (area_max - area_min) / N
+    area_center = np.linspace(area_min, area_max, N) + h / 2
+
+    return area_center
+
+
+print("areas:", np.round(np.sqrt(split(w * h, 5))))
+print("aspects:", split(w / h, 3))
+# %%
+# %%

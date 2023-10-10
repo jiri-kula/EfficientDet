@@ -44,12 +44,13 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "checkpoints/drazka-rotation-3/weights-46",
+        "checkpoints/hf-m4-d2-full/weights-69",
         "-n",
         "efficientdet_d0",
         "-i",
         // "/mnt/c/Edwards/rv5/rv5_00003604.png",
-        "/mnt/c/Edwards/annotation/RV12/drazka-rotation-3/nedrazka_rv12/image_nedrazka_rv12_0764.png",
+        // "/mnt/c/Edwards/annotation/RV12/drazka-rotation-3/nedrazka_rv12/image_nedrazka_rv12_0764.png",
+        "/mnt/c/Edwards/annotation/RV12/drazka-rotation-3/nedrazka_rv12/image_nedrazka_rv12_0170.png",
         "-c",
         "3"
       ],

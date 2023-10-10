@@ -257,7 +257,10 @@ class EfficientDet(tf.keras.Model):
             loss = tf.reduce_sum(losses)
 
         # Compute gradients
-        trainable_vars = self._freeze_vars()
+        if self.var_freeze_expr is not None:
+            trainable_vars = self._freeze_vars()
+        else:
+            trainable_vars = self.trainable_variables
         gradients = tape.gradient(loss, trainable_vars)
         # Update weights
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))

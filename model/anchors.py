@@ -7,7 +7,11 @@ from .utils import compute_iou
 class Anchors:
     """Anchor boxes generator."""
 
-    def __init__(self, aspect_ratios=[0.35, 1.52, 2.66], scales=[0, 1 / 3, 2 / 3]):
+    def __init__(
+        self,
+        aspect_ratios=[0.76846927, 1.88238771, 2.99630615],
+        scales=[0, 1 / 3, 2 / 3],
+    ):
         """Initialize anchors generator.
 
         Args:
@@ -22,7 +26,7 @@ class Anchors:
 
         self._strides = [2**i for i in range(3, 8)]
         self._areas = [
-            i**2 for i in [51.0, 57.0, 62.0, 67.0, 72.0]
+            i**2 for i in [37.0, 54.0, 66.0, 77.0, 86.0]
         ]  # TODO: RV12 shape analysis
         self._anchor_dims = self._compute_dims()
 

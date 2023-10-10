@@ -3,6 +3,7 @@
 import tensorflow as tf
 
 TFLITE_CONVERSION = False
+
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
 if EAGERLY:
@@ -17,12 +18,31 @@ from model.anchors import SamplesEncoder, Anchors
 from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
 from model.utils import to_corners
 
-from dataset_api import ds2
+from dataset_api import create_dataset
 
+EPOCHS = 200
+BATCH_SIZE = 4 if EAGERLY else 16
+checkpoint_dir = "checkpoints/hf-default-none-1e-4-drazka-nedrazka-robotic-3-4-aug"
+
+train_data1 = create_dataset(
+    "/mnt/c/Edwards/annotation/RV12/drazka-nedrazka-balanced.csv", take_every=20
+)
+# train_data1 = train_data1.shuffle(1000).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+
+train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
+# train_data2 = train_data1.shuffle(1000).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+
+train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
+
+train_data4 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3-4-aug.csv")
+
+train_data = train_data4.shuffle(256)
+train_data = train_data.batch(BATCH_SIZE)
+train_data = train_data.prefetch(tf.data.AUTOTUNE)
+
+# %%
 NUM_CLASSES = 3
 
-EPOCHS = 300
-BATCH_SIZE = 4 if EAGERLY else 32
 
 model = EfficientDet(
     channels=64,
@@ -34,10 +54,11 @@ model = EfficientDet(
     export_tflite=TFLITE_CONVERSION,
 )
 
-model.var_freeze_expr = "efficientnet-lite0|resample_p6"
+# model.var_freeze_expr = "efficientnet-lite0"
+model.var_freeze_expr = None
 
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
     loss=None,
     run_eagerly=EAGERLY,
 )
@@ -47,7 +68,6 @@ model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
 model.summary(show_trainable=True)
 
 # checkpoints
-checkpoint_dir = "checkpoints/drazka-nedrazka-balanced-mse"
 completed_epochs = 0
 latest = tf.train.latest_checkpoint(checkpoint_dir)
 if latest is None:
@@ -67,7 +87,6 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     save_best_only=True,
 )
 
-train_data = ds2.shuffle(500).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
 # %%
 

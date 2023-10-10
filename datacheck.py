@@ -1,7 +1,7 @@
 # %%
 import pandas as pd
 
-meta_train = "/mnt/c/Edwards/annotation/RV12/merge-all.csv"
+meta_train = "drazka-nedrazka-robotic-3.csv"
 
 column_names = [
     "PURPOSE",

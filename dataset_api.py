@@ -22,12 +22,6 @@ column_names = [
     "R32",
 ]
 
-meta_train = "/mnt/c/Edwards/annotation/RV12/drazka-nedrazka-balanced.csv"
-df = pd.read_csv(meta_train, header=None, names=column_names)
-df.head()
-
-dataset = tf.data.Dataset.from_tensor_slices(dict(df))
-
 
 def load_image(image_path):
     raw_image = tf.io.read_file(image_path)
@@ -83,10 +77,14 @@ def process(item):
     return image, label
 
 
-ds2 = dataset.map(process)
+def create_dataset(meta_train, take_every=None):
+    df = pd.read_csv(meta_train, header=None, names=column_names)
+    df.head()
 
-# BATCH_SIZE = 32
+    if take_every is not None:
+        hf = df.iloc[::take_every, :]
+        dataset = tf.data.Dataset.from_tensor_slices(dict(hf))
+    else:
+        dataset = tf.data.Dataset.from_tensor_slices(dict(df))
 
-# train_data = ds2.shuffle(5000)
-# train_data = train_data.padded_batch(BATCH_SIZE)
-# train_data = train_data.prefetch(tf.data.AUTOTUNE)
+    return dataset.map(process)

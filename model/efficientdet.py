@@ -117,7 +117,7 @@ class EfficientDet(tf.keras.Model):
             num_anchors=num_anchors,
             depth=heads_depth,
             kernel_size=box_kernel_size,
-            depth_multiplier=box_depth_multiplier,
+            depth_multiplier=2*box_depth_multiplier,
         )
 
         self.export_tflite = export_tflite

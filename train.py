@@ -2,7 +2,7 @@
 """Script for creating and training a new model."""
 import tensorflow as tf
 
-TFLITE_CONVERSION = False
+TFLITE_CONVERSION = True
 
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
@@ -15,26 +15,22 @@ import keras
 from model.efficientdet import EfficientDet
 from model.losses import EffDetLoss, AngleLoss
 from model.anchors import SamplesEncoder, Anchors
-from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
+# from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
 from model.utils import to_corners
 
 from dataset_api import create_dataset
 
 EPOCHS = 200
-BATCH_SIZE = 4 if EAGERLY else 16
-checkpoint_dir = "checkpoints/hf-default-none-1e-4-drazka-nedrazka-robotic-3-4-aug"
+BATCH_SIZE = 4 if EAGERLY else 64
+checkpoint_dir = "checkpoints/merge-b"
 
-train_data1 = create_dataset(
-    "/mnt/c/Edwards/annotation/RV12/drazka-nedrazka-balanced.csv", take_every=20
-)
-# train_data1 = train_data1.shuffle(1000).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+# train_data1 = create_dataset(
+#     "/media/jiri/D6667DDE667DBFB3/Edwards/annotation/RV12/drazka-nedrazka-balanced.csv", take_every=20
+# )
 
-train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
-# train_data2 = train_data1.shuffle(1000).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-
-train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
-
-train_data4 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3-4-aug.csv")
+# train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
+# train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
+train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-b.csv")
 
 train_data = train_data4.shuffle(256)
 train_data = train_data.batch(BATCH_SIZE)
@@ -54,11 +50,11 @@ model = EfficientDet(
     export_tflite=TFLITE_CONVERSION,
 )
 
-# model.var_freeze_expr = "efficientnet-lite0"
-model.var_freeze_expr = None
+model.var_freeze_expr = "efficientnet-lite0"
+# model.var_freeze_expr = None
 
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
     loss=None,
     run_eagerly=EAGERLY,
 )
@@ -175,7 +171,7 @@ input = interpreter.get_input_details()[0]  # Model has single input.
 output_boxes = interpreter.get_output_details()[0]  # Model has 3 outputs
 output_angles = interpreter.get_output_details()[1]  # Model has 3 outputs
 output_classes = interpreter.get_output_details()[2]  # Model has 3 outputs
-interpreter.allocate_tensors()  # Needed before execution!¨
+interpreter.allocate_tensors()  # Needed before execution!
 
 # constant input
 # input_data = tf.constant(0, shape=[1, 320, 320, 3], dtype="uint8")
@@ -188,9 +184,10 @@ interpreter.allocate_tensors()  # Needed before execution!¨
 # im8e = tf.expand_dims(im8, axis=0)
 # interpreter.set_tensor(input["index"], im8e)
 
+#%%
 # input loaded from image path
 image_path = (
-    "/mnt/c/Edwards/rot_anot2/RV12/drazka/drazka_rv12/image_drazka_rv12_0000.png"
+    "/home/jiri/winpart/Edwards/annotation/RV12/robotic-3-aug//drazka_rv12/image_drazka_rv12_0011.png"
 )
 raw_image = tf.io.read_file(image_path)
 image = tf.image.decode_image(raw_image, channels=3, dtype=tf.uint8)
@@ -200,11 +197,13 @@ interpreter.set_tensor(input["index"], image)
 
 interpreter.invoke()
 boxes = interpreter.get_tensor(output_boxes["index"])
+classes = interpreter.get_tensor(output_classes["index"])
+retval = boxes
 retval[0, ...]
 
 
-retval = retval.astype(np.float32)
-real = (retval - zero_point) * scale
+# retval = retval.astype(np.float32)
+# real = (retval - zero_point) * scale
 
 ianchor = 6652
 retval[0, ianchor, :]

@@ -85,6 +85,9 @@ def create_dataset(meta_train, take_every=None):
         hf = df.iloc[::take_every, :]
         dataset = tf.data.Dataset.from_tensor_slices(dict(hf))
     else:
-        dataset = tf.data.Dataset.from_tensor_slices(dict(df))
+        # random shuffle
+        # see: https://stackoverflow.com/questions/42438591/shuffle-all-rows-of-a-csv-file-with-python
+        hf = df.sample(frac=1)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(hf))
 
     return dataset.map(process)

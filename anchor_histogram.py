@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 
 
-meta_train = "/mnt/c/Edwards/annotation/RV12/robotic-3-4-aug.csv"
+meta_train = "/home/jiri/winpart/Edwards/annotation/RV12/merge-c.csv"
 
 column_names = [
     "PURPOSE",

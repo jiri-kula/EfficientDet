@@ -1,8 +1,23 @@
+# %%
+EAGERLY = False
+
+import sys
+
 import tensorflow as tf
+
+tf.config.run_functions_eagerly(EAGERLY)
+if EAGERLY:
+    tf.data.experimental.enable_debug_mode()
+
 import pandas as pd
 import numpy as np
 
 from model.anchors import SamplesEncoder
+
+sys.path.insert(1, "/home/jiri/DigitalAssistant/python")
+
+from render_to_image import BladeGenerator
+
 
 column_names = [
     "PURPOSE",
@@ -91,3 +106,24 @@ def create_dataset(meta_train, take_every=None):
         dataset = tf.data.Dataset.from_tensor_slices(dict(hf))
 
     return dataset.map(process)
+
+
+# %%
+def create_generator():
+    def process(thumb):
+        return thumb
+
+    gen = BladeGenerator()
+    # thumb, off_box, cMo = gen()
+
+    return tf.data.Dataset.from_generator(
+        gen,
+        output_signature=(tf.TensorSpec(shape=(320, 320, 3), dtype=tf.float32)),
+    ).map(process)
+
+
+if __name__ == "__main__":
+    ds = create_generator()
+    for e in ds:
+        print(e)
+# %%

@@ -119,3 +119,11 @@ sudo mount -t ntfs -o ro /dev/nvme1n1p3 ~/winpart
 ```
 sudo mount -t ntfs /dev/nvme1n1p3 ~/winpart
 ```
+
+Known issues
+- Access is denied because the NTFS volume is already exclusively opened
+use `lsblk` to check if the partition is already mounted, if so use
+
+```
+sudo umount /media/jiri/D6667DDE667DBFB3 (or whatever after /jiri/...)
+```

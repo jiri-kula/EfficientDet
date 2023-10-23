@@ -90,7 +90,7 @@ def split(areas, N):
     area_min = min(areas)
     area_max = max(areas)
     h = (area_max - area_min) / N
-    area_center = np.linspace(area_min, area_max, N) + h / 2
+    area_center = np.linspace(area_min + h/2, area_max - h/2, N)
 
     return area_center
 

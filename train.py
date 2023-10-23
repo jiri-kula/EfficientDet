@@ -15,6 +15,7 @@ import keras
 from model.efficientdet import EfficientDet
 from model.losses import EffDetLoss, AngleLoss
 from model.anchors import SamplesEncoder, Anchors
+
 # from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
 from model.utils import to_corners
 
@@ -22,7 +23,7 @@ from dataset_api import create_dataset
 
 EPOCHS = 200
 BATCH_SIZE = 4 if EAGERLY else 64
-checkpoint_dir = "checkpoints/merge-b"
+checkpoint_dir = "checkpoints/synth-merge-e-1x1"
 
 # train_data1 = create_dataset(
 #     "/media/jiri/D6667DDE667DBFB3/Edwards/annotation/RV12/drazka-nedrazka-balanced.csv", take_every=20
@@ -30,7 +31,9 @@ checkpoint_dir = "checkpoints/merge-b"
 
 # train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
 # train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
-train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-b.csv")
+train_data4 = create_dataset(
+    "/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv"
+)
 
 train_data = train_data4.shuffle(256)
 train_data = train_data.batch(BATCH_SIZE)
@@ -105,18 +108,19 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
 # train_data = train_data.padded_batch(BATCH_SIZE)
 # train_data = train_data.prefetch(tf.data.AUTOTUNE)
 
-
-history = model.fit(
-    train_data,
-    epochs=EPOCHS,
-    workers=1,
-    use_multiprocessing=False,
-    validation_data=None,
-    initial_epoch=completed_epochs,
-    callbacks=[model_checkpoint_callback, tensorboard_callback],
-)
+if not TFLITE_CONVERSION:
+    history = model.fit(
+        train_data,
+        epochs=EPOCHS,
+        workers=1,
+        use_multiprocessing=False,
+        validation_data=None,
+        initial_epoch=completed_epochs,
+        callbacks=[model_checkpoint_callback, tensorboard_callback],
+    )
 
 # %%
+print("Conversion")
 model.compute_output_shape((1, 320, 320, 3))
 
 # https://www.tensorflow.org/lite/performance/post_training_quantization
@@ -184,11 +188,11 @@ interpreter.allocate_tensors()  # Needed before execution!
 # im8e = tf.expand_dims(im8, axis=0)
 # interpreter.set_tensor(input["index"], im8e)
 
-#%%
+exit()
+
+# %%
 # input loaded from image path
-image_path = (
-    "/home/jiri/winpart/Edwards/annotation/RV12/robotic-3-aug//drazka_rv12/image_drazka_rv12_0011.png"
-)
+image_path = "/home/jiri/winpart/Edwards/annotation/RV12/robotic-3-aug//drazka_rv12/image_drazka_rv12_0011.png"
 raw_image = tf.io.read_file(image_path)
 image = tf.image.decode_image(raw_image, channels=3, dtype=tf.uint8)
 image = tf.expand_dims(image, axis=0)

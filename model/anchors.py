@@ -9,7 +9,7 @@ class Anchors:
 
     def __init__(
         self,
-        aspect_ratios=[0.76846927, 1.88238771, 2.99630615],
+        aspect_ratios=[0.80836033,1.77034953, 2.73233873],
         scales=[0, 1 / 3, 2 / 3],
     ):
         """Initialize anchors generator.
@@ -26,7 +26,7 @@ class Anchors:
 
         self._strides = [2**i for i in range(3, 8)]
         self._areas = [
-            i**2 for i in [37.0, 54.0, 66.0, 77.0, 86.0]
+            i**2 for i in [43.,  70.,  89., 105., 118.]
         ]  # TODO: RV12 shape analysis
         self._anchor_dims = self._compute_dims()
 

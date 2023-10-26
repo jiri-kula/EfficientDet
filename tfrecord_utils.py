@@ -33,6 +33,8 @@ image_labels = {
     'rv12' : 2,
     'drazka_rv3' : 0,
     'nedrazka_rv3' : 0,
+    'drazka_rv5' : 0,
+    'nedrazka_rv5' : 0,
     'drazka_rv8' : 1,
     'nedrazka_rv8' : 1,
     'drazka_rv12' : 2,
@@ -41,11 +43,12 @@ image_labels = {
 
 path_map = {
   'X:\\Dataset\\zaznamy_z_vyroby\\' : "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/",
-  '/home/jiri/winpart/' : '/home/jiri/remote_legion/'
+  '/home/jiri/winpart/' : '/home/jiri/remote_legion/winpart/',
+  '/home/jiri/DigitalAssistant/python/' : '/home/jiri/remote_legion/DigitalAssistant/python/',
+  '/var/tmp/DetectionData/Dataset/' : '/home/jiri/remote_legion/winpart/Edwards/DetectionData/Dataset/'
 }
 
 def image_example(rows):
-
   classes = []
   xmins = []
   ymins = []
@@ -99,7 +102,7 @@ def image_example(rows):
 
     feature = {
         'image_path': _bytes_feature(rows["PATH"].values[0].encode('utf-8')),
-        'image_raw': _bytes_feature(image_bytes.read(1)),
+        'image_raw': _bytes_feature(image_bytes.read()),
         'classes' : _float_feature(classes),
         'xmins' : _float_feature(xmins),
         'ymins' : _float_feature(ymins),

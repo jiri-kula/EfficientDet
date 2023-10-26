@@ -226,6 +226,10 @@ class EfficientDet(tf.keras.Model):
             # filter anchor boxes
             positive_mask = tf.cast(tf.greater(y_true[..., 10], -1.0), dtype=tf.float32)
             ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
+            angle_ignore_mask = tf.cast(
+                tf.equal(tf.reduce_sum(angle_labels), 0.0), 
+                dtype=tf.float32
+            )
 
             # loss for each anchor
             clf_loss = self.class_loss(cls_labels, cls_preds)
@@ -249,6 +253,11 @@ class EfficientDet(tf.keras.Model):
             ang_loss = tf.math.divide_no_nan(
                 tf.reduce_sum(ang_loss, axis=-1), normalizer
             )
+            # zero out angle loss where label does not carry it (all zeros)
+            ang_loss = tf.where(
+                tf.equal(angle_ignore_mask, 1.0), 0.0, ang_loss
+            )  
+
 
             # average loss across batches so that remains a scalar loss for each (box, angle, class)
             losses = tf.reduce_mean(tf.stack([box_loss, ang_loss, clf_loss]), axis=-1)

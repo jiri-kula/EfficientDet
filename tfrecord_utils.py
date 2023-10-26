@@ -89,6 +89,7 @@ def image_example(rows):
 
     feature = {
         'image_raw': _bytes_feature(image_bytes.read()),
+        'classes' : _float_feature(classes),
         'xmins' : _float_feature(xmins),
         'ymins' : _float_feature(ymins),
         'xmaxes' : _float_feature(xmaxes),

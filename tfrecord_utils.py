@@ -72,6 +72,14 @@ def image_example(rows):
       r12s.append(rows.iloc[i]["R12"])
       r22s.append(rows.iloc[i]["R22"])
       r32s.append(rows.iloc[i]["R32"])
+    else:
+      r11s.append(0.0)
+      r21s.append(0.0)
+      r31s.append(0.0)
+      r12s.append(0.0)
+      r22s.append(0.0)
+      r32s.append(0.0)
+
 
   image_path = rows.iloc[0]["PATH"]
   
@@ -134,7 +142,7 @@ with tf.io.TFRecordWriter('zaznamy_z_vyroby.tfrecord') as file_writer:
     the_path = df.iloc[row].PATH
 
     # get indexes of the same image path
-    search_len = min(SEARCH_LEN, N-row)
+    search_len = min(SEARCH_LEN, N - row)
     # subset = df[row:row + search_len] # expecting no more that 10 blades in one image
     # same_paths_idx = row + subset.index[subset['PATH'] == the_path]
     same_paths_idx = df.index[df['PATH'] == the_path]

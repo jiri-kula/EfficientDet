@@ -98,7 +98,8 @@ def image_example(rows):
     # image_string = tf.io.decode_png(image_bytes.read())
 
     feature = {
-        'image_raw': _bytes_feature(image_bytes.read()),
+        'image_path': _bytes_feature(rows["PATH"].values[0].encode('utf-8')),
+        'image_raw': _bytes_feature(image_bytes.read(1)),
         'classes' : _float_feature(classes),
         'xmins' : _float_feature(xmins),
         'ymins' : _float_feature(ymins),

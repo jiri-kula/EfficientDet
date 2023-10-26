@@ -47,6 +47,7 @@ def decode_raw(record_bytes):
 
       # Schema
       {
+        "image_path": tf.io.FixedLenFeature([], dtype=tf.string),
         "image_raw": tf.io.FixedLenFeature([], dtype=tf.string),
         "classes" : tf.io.VarLenFeature(dtype=tf.float32),
         "xmins": tf.io.VarLenFeature(dtype=tf.float32),
@@ -104,7 +105,7 @@ def decode_fn(record_bytes):
   return image, label
 
 if __name__ == "__main__":
-  single = 0
-  multi = 0
-  for batch in tf.data.TFRecordDataset([example_path]).map(decode_fn):
-    print(batch["r11s"])
+  for batch in tf.data.TFRecordDataset([example_path]): #.map(decode_fn):
+    example = tf.train.Example()
+    example.ParseFromString(batch.numpy())
+    print(example)

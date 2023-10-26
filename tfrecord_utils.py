@@ -20,7 +20,7 @@ def _bytes_feature(value):
 
 def _float_feature(value):
   """Returns a float_list from a float / double."""
-  return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+  return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 def _int64_feature(value):
   """Returns an int64_list from a bool / enum / int / uint."""
@@ -30,19 +30,76 @@ image_labels = {
     'rv3' : 0,
     'rv8' : 1,
     'rv12' : 2,
+    'drazka_rv3' : 0,
+    'nedrazka_rv3' : 0,
+    'drazka_rv8' : 1,
+    'nedrazka_rv8' : 1,
+    'drazka_rv12' : 2,
+    'nedrazka_rv12' : 2,
 }
 
-def image_example(image_string, label):
-  image_shape = tf.io.decode_png(image_string).shape
+path_map = {
+  'X:\\Dataset\\zaznamy_z_vyroby\\' : "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/",
+}
 
-  feature = {
-      'height': _int64_feature(image_shape[0]),
-      'width': _int64_feature(image_shape[1]),
-      'depth': _int64_feature(image_shape[2]),
-      'label': _int64_feature(label),
-      'image_raw': _bytes_feature(image_string),
-      'bboxes' : _float_feature(xmins)
-  }
+def image_example(rows):
+
+  classes = []
+  xmins = []
+  ymins = []
+  xmaxes = []
+  ymaxes = []
+
+  r11s = []
+  r21s = []
+  r31s = []
+
+  r12s = []
+  r22s = []
+  r32s = []
+
+  for i in range(len(rows)):
+    classes.append(image_labels[rows.iloc[i]["OBJECT"]])
+    xmins.append(rows.iloc[i]["X1"])
+    ymins.append(rows.iloc[i]["Y1"])
+    xmaxes.append(rows.iloc[i]["X2"])
+    ymaxes.append(rows.iloc[i]["Y2"])
+
+    if not rows.iloc[i]["X1"]:
+      r11s.append(rows.iloc[i]["R11"])
+      r21s.append(rows.iloc[i]["R21"])
+      r31s.append(rows.iloc[i]["R31"])
+      r12s.append(rows.iloc[i]["R12"])
+      r22s.append(rows.iloc[i]["R22"])
+      r32s.append(rows.iloc[i]["R32"])
+
+  image_path = rows.iloc[0]["PATH"]
+  
+  # is there record to replace path?
+  for item in path_map:
+    idx = image_path.find(item)
+    if idx != -1:
+      parts = image_path.split(item, 2)
+      image_path = path_map[item] + parts[1]
+      image_path = image_path.replace("\\", "/")
+      break
+
+  with open(image_path, 'rb') as image_bytes:
+    # image_string = tf.io.decode_png(image_bytes.read())
+
+    feature = {
+        'image_raw': _bytes_feature(image_bytes.read()),
+        'xmins' : _float_feature(xmins),
+        'ymins' : _float_feature(ymins),
+        'xmaxes' : _float_feature(xmaxes),
+        'ymaxes' : _float_feature(ymaxes),
+        'r11s' : _float_feature(r11s),
+        'r21s' : _float_feature(r21s),
+        'r31s' : _float_feature(r31s),
+        'r12s' : _float_feature(r12s),
+        'r22s' : _float_feature(r22s),
+        'r32s' : _float_feature(r32s)
+    }
 
   return tf.train.Example(features=tf.train.Features(feature=feature))
 
@@ -70,21 +127,28 @@ bar = Bar(
 SEARCH_LEN = 1000
 N = len(df)
 row = 0
-while row < N:
-  # take image path from the first row
-  the_path = df.iloc[row].PATH
+with tf.io.TFRecordWriter('zaznamy_z_vyroby.tfrecord') as file_writer:
+  while row < N:
+    # take image path from the first row
+    the_path = df.iloc[row].PATH
 
-  # get indexes of the same image path
-  search_len = min(SEARCH_LEN, N-row)
-  # subset = df[row:row + search_len] # expecting no more that 10 blades in one image
-  # same_paths_idx = row + subset.index[subset['PATH'] == the_path]
-  same_paths_idx = df.index[df['PATH'] == the_path]
+    # get indexes of the same image path
+    search_len = min(SEARCH_LEN, N-row)
+    # subset = df[row:row + search_len] # expecting no more that 10 blades in one image
+    # same_paths_idx = row + subset.index[subset['PATH'] == the_path]
+    same_paths_idx = df.index[df['PATH'] == the_path]
 
-  # create tf.Example (tfrecotrd)
+    # create tf.Example (tfrecotrd)
+    sample = image_example(df.iloc[same_paths_idx])
 
-  # remove these rows from the DataFrame
-  # df.drop(same_paths_idx, inplace=True)
-  row += len(same_paths_idx)
+    # write to tfrecord file
+    file_writer.write(sample.SerializeToString())
+      
+    # remove these rows from the DataFrame
+    # df.drop(same_paths_idx, inplace=True)
+    num_samples = len(same_paths_idx)
+    row += num_samples
 
-  bar.next()
+    bar.next(num_samples)
+  bar.finish()
 # %%

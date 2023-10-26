@@ -28,6 +28,7 @@ def _int64_feature(value):
 
 image_labels = {
     'rv3' : 0,
+    'rv5' : 0,
     'rv8' : 1,
     'rv12' : 2,
     'drazka_rv3' : 0,
@@ -40,6 +41,7 @@ image_labels = {
 
 path_map = {
   'X:\\Dataset\\zaznamy_z_vyroby\\' : "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/",
+  '/home/jiri/winpart/' : '/home/jiri/remote_legion/'
 }
 
 def image_example(rows):

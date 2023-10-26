@@ -1,6 +1,7 @@
 """Implementation of anchor boxes generator and encoder of training data."""
 
 import tensorflow as tf
+import sys
 from .utils import compute_iou
 
 
@@ -141,7 +142,8 @@ class SamplesEncoder:
         box_target = box_target / self._box_variance
         return box_target
 
-    @tf.autograph.experimental.do_not_convert
+    # @tf.autograph.experimental.do_not_convert
+    
     def _encode_sample(self, image_shape, gt_boxes, classes, angles):
         if self.anchor_boxes is None:
             self.anchor_boxes = self._anchors.get_anchors(
@@ -158,20 +160,21 @@ class SamplesEncoder:
             self.anchor_boxes, matched_gt_boxes
         )  # compute shift + scale of anchor to match 'gt box'
 
-        classes = tf.cast(classes, dtype=tf.float32)
+        # tf.print("classes:", classes, output_stream=sys.stderr)
+        # tf.print("angles:", angles, output_stream=sys.stderr)
         matched_gt_classes = tf.gather(classes, matched_gt_idx)
-        class_target = tf.where(tf.equal(positive_mask, 1.0), matched_gt_classes, -1.0)
+        class_target = tf.where(tf.equal(positive_mask, 1.0), tf.squeeze(matched_gt_classes), -1.0)
         class_target = tf.where(tf.equal(ignore_mask, 1.0), -2.0, class_target)
         class_target = tf.expand_dims(class_target, axis=-1)
 
-        num_samples = class_target.shape[0]
-        # single_target = tf.constant(angles, shape=(1, 6))
-        c = tf.constant(
-            [num_samples, 1], tf.int32
-        )  # TODO: this is not gonna work for multiple objects in one image
-        angle_target = tf.tile(angles, c)
+        matched_gt_angles = tf.gather(angles, matched_gt_idx)
+        # tf.print("matched_gt_angles:", matched_gt_angles, output_stream=sys.stderr)
+        
+        # angle_target = tf.where(tf.equal(positive_mask, 1.0), matched_gt_angles, -1.0)
+        # angle_target = tf.where(tf.equal(ignore_mask, 1.0), -2.0, class_target)
+        # angle_target = tf.expand_dims(class_target, axis=-1)
 
-        label = tf.concat([box_target, angle_target, class_target], axis=-1)
+        label = tf.concat([box_target, matched_gt_angles, class_target], axis=-1)
 
         # assert len(tf.where(class_target > -1.0)) > 0
 

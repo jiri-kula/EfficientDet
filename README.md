@@ -1,3 +1,19 @@
+# Python
+Use v3.8
+wget https://www.python.org/ftp/python/3.9.11/Python-3.9.11.tar.xz
+xz -d Python-3.9.11.tar.xz
+tar -xvf Python-3.9.11.tar
+cd Python-3.9.11
+sudo apt install        \
+      libffi-dev        \
+      libgl1            \
+      libsqlite3-dev    \
+      libssl-dev        \
+      -y
+./configure
+make -j12
+sudo make altinstall
+
 # EfficientDet
 
 Repository with my implementation of [EfficientDet](https://arxiv.org/abs/1911.09070).

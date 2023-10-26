@@ -123,12 +123,13 @@ def image_example(rows):
 # %%
 
 # set meta file path
-meta_train = "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/2022_12_20/rv12/montaz_1/meta.csv"
-# meta_train = "/home/jiri/remote_legion/Edwards/annotation/RV12/merge-e.csv"
+# meta_train = "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
+meta_train = "/home/jiri/remote_legion/winpart/Edwards/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
+# meta_train = "/home/jiri/remote_legion/winpart/Edwards/annotation/RV12/merge-e.csv"
 
 # load csv as pandas DataFrame
 df = pd.read_csv(meta_train, header=None, names=column_names)
-df = df.sort_values(by=["PATH"])
+df = df.sort_values(by=["PATH"]) # removing sort breaks the algorithm
 
 bar = Bar(
     "Build cache",
@@ -136,7 +137,6 @@ bar = Bar(
     suffix="%(percent).1f%% - %(eta)ds",
 )
 
-SEARCH_LEN = 1000
 N = len(df)
 row = 0
 with tf.io.TFRecordWriter('zaznamy_z_vyroby.tfrecord') as file_writer:
@@ -144,22 +144,18 @@ with tf.io.TFRecordWriter('zaznamy_z_vyroby.tfrecord') as file_writer:
     # take image path from the first row
     the_path = df.iloc[row].PATH
 
-    # get indexes of the same image path
-    search_len = min(SEARCH_LEN, N - row)
-    # subset = df[row:row + search_len] # expecting no more that 10 blades in one image
-    # same_paths_idx = row + subset.index[subset['PATH'] == the_path]
-    same_paths_idx = df.index[df['PATH'] == the_path]
+    last_row = row + 1
+    while last_row < N and df.iloc[last_row]["PATH"] == the_path:
+      last_row += 1
 
     # create tf.Example (tfrecotrd)
-    sample = image_example(df.iloc[same_paths_idx])
+    sample = image_example(df[row:last_row])
 
     # write to tfrecord file
     file_writer.write(sample.SerializeToString())
       
-    # remove these rows from the DataFrame
-    # df.drop(same_paths_idx, inplace=True)
-    num_samples = len(same_paths_idx)
-    row += num_samples
+    num_samples = last_row - row
+    row = last_row
 
     bar.next(num_samples)
   bar.finish()

@@ -2,9 +2,9 @@
 """Script for creating and training a new model."""
 import tensorflow as tf
 
-TFLITE_CONVERSION = True
+TFLITE_CONVERSION = False
 
-EAGERLY = False
+EAGERLY = True
 tf.config.run_functions_eagerly(EAGERLY)
 if EAGERLY:
     tf.data.experimental.enable_debug_mode()
@@ -19,7 +19,8 @@ from model.anchors import SamplesEncoder, Anchors
 # from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
 from model.utils import to_corners
 
-from dataset_api import create_dataset
+from dataset_api import create_dataset, process_tfrecord
+from tfrecord_decode import decode_fn
 
 EPOCHS = 200
 BATCH_SIZE = 4 if EAGERLY else 64
@@ -31,11 +32,13 @@ checkpoint_dir = "checkpoints/synth-merge-e-1x1"
 
 # train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
 # train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
-train_data4 = create_dataset(
-    "/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv"
-)
+# train_data4 = create_dataset(
+#     "/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv"
+# )
 
-train_data = train_data4.shuffle(256)
+train_data = tf.data.TFRecordDataset("zaznamy_z_vyroby.tfrecord").map(decode_fn)
+
+# train_data = train_data4.shuffle(256)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
 

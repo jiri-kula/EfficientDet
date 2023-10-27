@@ -2,7 +2,7 @@
 """Script for creating and training a new model."""
 import tensorflow as tf
 
-TFLITE_CONVERSION = True
+TFLITE_CONVERSION = False
 
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
@@ -22,8 +22,8 @@ from model.utils import to_corners
 from dataset_api import create_dataset
 
 EPOCHS = 200
-BATCH_SIZE = 4 if EAGERLY else 64
-checkpoint_dir = "checkpoints/synth-merge-e-1x1"
+BATCH_SIZE = 4 if EAGERLY else 128
+checkpoint_dir = "checkpoints/synth-merge-e-freeze_efficientnet-lite0-resample_p6"
 
 # train_data1 = create_dataset(
 #     "/media/jiri/D6667DDE667DBFB3/Edwards/annotation/RV12/drazka-nedrazka-balanced.csv", take_every=20
@@ -31,9 +31,7 @@ checkpoint_dir = "checkpoints/synth-merge-e-1x1"
 
 # train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
 # train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
-train_data4 = create_dataset(
-    "/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv"
-)
+train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv")
 
 train_data = train_data4.shuffle(256)
 train_data = train_data.batch(BATCH_SIZE)
@@ -53,8 +51,9 @@ model = EfficientDet(
     export_tflite=TFLITE_CONVERSION,
 )
 
-model.var_freeze_expr = "efficientnet-lite0"
-# model.var_freeze_expr = None
+model.var_freeze_expr = "efficientnet-lite0|resample_p6|fpn_cells"
+
+print("var_freeze_expr: ", model.var_freeze_expr)
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),

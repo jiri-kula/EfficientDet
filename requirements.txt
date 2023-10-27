@@ -1,7 +1,11 @@
 opencv-python
 imgaug
-nvidia-cudnn-cu11==8.6.0.163
+nvidia-cudnn-cu12
 protobuf==3.20.*
-tensorflow==2.8.0
+tensorflow[and-cuda]==2.14.0
+# tensorflow-estimator==2.8.0
 tensorflow_hub
+# tensorboard-plugin-profile==2.8.0
+pandas
 progress
+scikit-learn

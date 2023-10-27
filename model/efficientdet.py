@@ -4,6 +4,12 @@ import tensorflow as tf
 from .layers import BiFPN, ClassDetector, BoxRegressor, AngleRegressor
 from .backbone import get_backbone
 import tensorflow_hub as hub
+import re
+from .losses import BoxLoss, AngleLoss, FocalLoss
+
+
+# https://stackoverflow.com/questions/55428731/how-to-debug-custom-metric-values-in-tf-keras
+# @tf.function
 
 
 class EfficientDet(tf.keras.Model):
@@ -25,6 +31,7 @@ class EfficientDet(tf.keras.Model):
         box_depth_multiplier=1,
         backbone_name="efficientnet_b0",
         name="efficientdet_d0",
+        export_tflite=False,
     ):
         """Initialize EffDet. Default args refers to EfficientDet D0.
 
@@ -56,11 +63,27 @@ class EfficientDet(tf.keras.Model):
         """
         super().__init__(name=name)
 
+        self.var_freeze_expr = None
+        self.loss_tracker = tf.metrics.Mean(name="loss")
+        self.box_tracker = tf.metrics.Mean(name="box")
+        self.angle_tracker = tf.metrics.Mean(name="angle")
+        self.class_tracker = tf.metrics.Mean(name="class")
+
+        # self.loss_comp = EffDetLoss(num_classes=3)
+
+        delta = 1.0
+        self.box_loss = BoxLoss(delta=delta)
+        # self.angle_loss = tf.losses.
+        # AngleLoss(delta=delta)
+        self.class_loss = FocalLoss(alpha=0.25, gamma=1.5, label_smoothing=0.1)
+
+        self.mean_angle_metric = tf.metrics.Mean(name="mean_angle_metric")
+
         # self.backbone = get_backbone(backbone_name)
         # self.backbone.trainable = False
         self.backbone = hub.KerasLayer(
             "https://tfhub.dev/tensorflow/efficientdet/lite0/feature-vector/1",
-            trainable=False,
+            trainable=True,
         )
 
         # self.BiFPN = BiFPN(
@@ -97,6 +120,22 @@ class EfficientDet(tf.keras.Model):
             depth_multiplier=box_depth_multiplier,
         )
 
+        self.export_tflite = export_tflite
+
+    @property
+    def metrics(self):
+        # We list our `Metric` objects here so that `reset_states()` can be
+        # called automatically at the start of each epoch
+        # or at the start of `evaluate()`.
+        # If you don't implement this property, you have to call
+        # `reset_states()` yourself at the time of your choosing.
+        return [
+            self.loss_tracker,
+            self.box_tracker,
+            self.angle_tracker,
+            self.class_tracker,
+        ]
+
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
 
@@ -121,6 +160,8 @@ class EfficientDet(tf.keras.Model):
                 [batch_size, -1, self.class_det.num_classes],
                 # [batch_size, s, s, -1, self.class_det.num_classes],
             )
+
+            # softmaxed_classes = tf.keras.activations.softmax(tmp) # no softmax - let all 0 + background class
             classes.append(tmp)
 
             # boxes
@@ -133,36 +174,118 @@ class EfficientDet(tf.keras.Model):
 
             # angles
             tmp1 = self.angle_reg(b[i], training=training)
-            tmp = tf.reshape(
-                tmp1,
-                [batch_size, -1, 2],
-            )
-            angles.append(tmp)
+            # tmp = tf.reshape(
+            #     tmp1,
+            #     [batch_size, -1, 6],  # rotation: r13, r23
+            # )
+            angles.append(tmp1)
 
         classes = tf.concat(classes, axis=1)
+
         boxes = tf.concat(boxes, axis=1)
         angles = tf.concat(angles, axis=1)
 
-        retval = tf.concat([boxes, classes, angles], axis=-1)
-        return retval
+        if self.export_tflite:
+            # apply sigmoid transform on class predicitons
+            classes = tf.keras.activations.sigmoid(
+                classes
+            )  # uncomment this line before conversin to tflite, but comment out before training
+
+            # zero out boxes to check quantization of our model without boxes
+            # boxes = tf.where(tf.equal(boxes, 1.0), 0.0, 0.0)
+        # retval = tf.concat([boxes, angles, classes], axis=-1)
+        # return retval
+        return boxes, angles, classes
+
+    def _freeze_vars(self):
+        if self.var_freeze_expr:
+            return [
+                v
+                for v in self.trainable_variables
+                if not re.match(self.var_freeze_expr, v.name)
+            ]
+
+    @tf.function
+    def train_step(self, data):
+        # Unpack the data. Its structure depends on your model and
+        # on what you pass to `fit()`.
+        x, y_true = data
+
+        with tf.GradientTape() as tape:
+            box_preds, angle_preds, cls_preds = self(x, training=True)  # Forward pass
+
+            # extract the three labels
+            box_labels = y_true[..., :4]
+            angle_labels = y_true[..., 4:10]
+            cls_labels = tf.one_hot(
+                tf.cast(y_true[..., 10], dtype=tf.int32),
+                depth=self.class_det.num_classes,
+                dtype=tf.float32,
+            )
+
+            # filter anchor boxes
+            positive_mask = tf.cast(tf.greater(y_true[..., 10], -1.0), dtype=tf.float32)
+            ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
+            angle_ignore_mask = tf.cast(
+                tf.equal(tf.reduce_sum(angle_labels), 0.0), 
+                dtype=tf.float32
+            )
+
+            # loss for each anchor
+            clf_loss = self.class_loss(cls_labels, cls_preds)
+            box_loss = self.box_loss(box_labels, box_preds)
+            # ang_loss = self.angle_loss(angle_labels, angle_preds)
+            ang_loss = tf.losses.MAE(angle_labels, angle_preds)
+
+            # zero out irrelevant anchors
+            clf_loss = tf.where(tf.equal(ignore_mask, 1.0), 0.0, clf_loss)
+            box_loss = tf.where(tf.equal(positive_mask, 1.0), box_loss, 0.0)
+            ang_loss = tf.where(tf.equal(positive_mask, 1.0), ang_loss, 0.0)
+
+            # average loss across samples so that there remains a scalar loss for each batch
+            normalizer = tf.reduce_sum(positive_mask, axis=-1)
+            clf_loss = tf.math.divide_no_nan(
+                tf.reduce_sum(clf_loss, axis=-1), normalizer
+            )
+            box_loss = tf.math.divide_no_nan(
+                tf.reduce_sum(box_loss, axis=-1), normalizer
+            )
+            ang_loss = tf.math.divide_no_nan(
+                tf.reduce_sum(ang_loss, axis=-1), normalizer
+            )
+            # zero out angle loss where label does not carry it (all zeros)
+            ang_loss = tf.where(
+                tf.equal(angle_ignore_mask, 1.0), 0.0, ang_loss
+            )  
 
 
-def get_efficientdet(name="efficientdet_d0", num_classes=80, num_anchors=9):
-    models = {
-        "efficientdet_d0": (64, 3, 3, "efficientnet_b0"),
-        "efficientdet_d1": (88, 4, 3, "efficientnet_b1"),
-        "efficientdet_d2": (112, 5, 3, "efficientnet_b2"),
-        "efficientdet_d3": (160, 6, 4, "efficientnet_b3"),
-        "efficientdet_d4": (224, 7, 4, "efficientnet_b4"),
-        "efficientdet_d5": (288, 7, 4, "efficientnet_b5"),
-        "efficientdet_d6": (384, 8, 5, "efficientnet_b6"),
-        "efficientdet_d7": (384, 8, 5, "efficientnet_b7"),
-    }
-    return EfficientDet(
-        channels=models[name][0],
-        num_classes=num_classes,
-        num_anchors=num_anchors,
-        bifpn_depth=models[name][1],
-        heads_depth=models[name][2],
-        name=name,
-    )
+            # average loss across batches so that remains a scalar loss for each (box, angle, class)
+            losses = tf.reduce_mean(tf.stack([box_loss, ang_loss, clf_loss]), axis=-1)
+
+            # let total loss be a sum of particular losses = box + angle + class
+            loss = tf.reduce_sum(losses)
+
+        # Compute gradients
+        if self.var_freeze_expr is not None:
+            trainable_vars = self._freeze_vars()
+        else:
+            trainable_vars = self.trainable_variables
+        gradients = tape.gradient(loss, trainable_vars)
+        # Update weights
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        # Update metrics (includes the metric that tracks the loss)
+        for metric in self.metrics:
+            if metric.name == "loss":
+                metric.update_state(loss)
+            else:
+                if metric.name == "box":
+                    metric.update_state(losses[0])
+                elif metric.name == "angle":
+                    metric.update_state(losses[1])
+                elif metric.name == "class":
+                    metric.update_state(losses[2])
+                # metric.update_state(y, y_pred)
+
+        # Return a dict mapping metric names to current value
+        return {m.name: m.result() for m in self.metrics}
+        # return {"loss": self.metrics[0], "angle": self.angle_metric.result()}

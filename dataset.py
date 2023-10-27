@@ -133,124 +133,6 @@ def image_mosaic(images, delay=1):
     # cv.destroyAllWindows()
 
 
-class MyDataset(keras.utils.all_utils.Sequence):
-    def __init__(self, data_dir, aug, batch_size, train=True):
-        self.data_dir = data_dir
-        self.aug = aug
-        self.batch_size = batch_size
-        self.train = train
-        self.se = SamplesEncoder()
-
-        # self.images_dir = self.data_dir + "/images"
-        # self.annot_dir = self.data_dir + "/annotations"
-
-        self.image_names = get_image_names(self.data_dir)
-
-        self.seq = iaa.Sequential(
-            [
-                # iaa.Fliplr(0.5),  # horizontal flips
-                # iaa.Crop(percent=(0, 0.1)),  # random crops
-                # Small gaussian blur with random sigma between 0 and 0.5.
-                # But we only blur about 50% of all images.
-                iaa.Sometimes(0.5, iaa.GaussianBlur(sigma=(0, 0.5))),
-                # Strengthen or weaken the contrast in each image.
-                iaa.LinearContrast((0.75, 1.5)),
-                # Add gaussian noise.
-                # For 50% of all images, we sample the noise once per pixel.
-                # For the other 50% of all images, we sample the noise per pixel AND
-                # channel. This can change the color (not only brightness) of the
-                # pixels.
-                iaa.AdditiveGaussianNoise(
-                    loc=0, scale=(0.0, 0.05 * 255), per_channel=0.5
-                ),
-                # Make some images brighter and some darker.
-                # In 20% of all cases, we sample the multiplier once per channel,
-                # which can end up changing the color of the images.
-                iaa.Multiply((0.8, 1.1), per_channel=0.2),
-            ],
-            random_order=True,
-        )  # apply augmenters in random order
-
-    def __len__(self):
-        # num_batches_in_dataset = int(
-        #     (len(self.image_names) + self.batch_size - 1) / self.batch_size
-        # )
-        # return num_batches_in_dataset¨
-        return len(self.image_names) // self.batch_size
-
-    def __getitem__(self, index):
-        return self.get_batch(index)
-
-    def get_batch(self, index):
-        train_images = []
-        lbl_boxes = []
-        lbl_classes = []
-
-        idx_from = index * self.batch_size
-        idx_to = min(idx_from + self.batch_size, len(self.image_names))
-
-        for idx in range(idx_from, idx_to):
-            image_path = self.data_dir + "/" + self.image_names[idx]
-            label_path = (
-                self.data_dir
-                + "/"
-                + os.path.splitext(self.image_names[idx])[0]
-                + ".json"
-            )
-
-            # raw_image = tf.io.read_file(image_path)
-            # image = tf.image.decode_image(raw_image, channels=3)
-            # padded_image, new_shape, scale = resize_and_pad(
-            #     image, target_side=256.0, scale_jitter=None
-            # )
-
-            Image = tf.keras.utils.load_img(image_path)
-            Image = Image.resize((256, 256))
-            Image = tf.keras.utils.img_to_array(
-                Image, dtype=np.float32
-            )  # see inference.py / 255.0
-
-            train_images.append(Image)
-
-            # boxes
-            with open(label_path, "r") as json_file:
-                label = json.load(json_file)
-                objs = labelme_to_coco(label)
-
-                num_boxes = len(objs)
-
-                BoundingBoxes = np.zeros((num_boxes, 4), dtype=np.float32)
-                Classes = np.zeros((num_boxes,), dtype=np.float32)
-                for iobj, obj in enumerate(objs):
-                    BoundingBoxes[iobj] = obj["box"] * IMG_SCALE
-                    Classes[iobj] = obj["class_id"]
-
-                lbl_boxes.append(BoundingBoxes)
-                lbl_classes.append(Classes)
-
-        if (
-            not (len(lbl_boxes) == len(lbl_classes) == len(train_images))
-            or len(train_images) < 1
-        ):
-            raise ValueError(
-                "Unexpected dimension of MyDataset. The size of boxes: {:d}, classes: {:d} and images: {:d}; batch index: {:d}, files from: {:d}, to: {:d}".format(
-                    len(lbl_boxes),
-                    len(lbl_classes),
-                    len(train_images),
-                    index,
-                    idx_from,
-                    idx_to,
-                )
-            )
-
-        train_images_aug = self.seq(images=train_images)
-        retval = self.se.encode_batch(
-            np.array(train_images_aug), lbl_boxes, lbl_classes
-        )
-
-        return retval
-
-
 # CSV
 class IDX(IntEnum):
     PURPOSE = 0
@@ -260,8 +142,12 @@ class IDX(IntEnum):
     Y1 = 4
     X2 = 7
     Y2 = 8
-    SIN_ANGLE = 9
-    COS_ANGLE = 10
+    R11 = 9
+    R21 = 10
+    R31 = 11
+    R12 = 12
+    R22 = 13
+    R32 = 14
 
 
 def unique_paths(reader, file, purpose=None):
@@ -295,8 +181,12 @@ class Box:
     x2: float
     y2: float
     lbl: int
-    sin_angle: float
-    cos_angle: float
+    r11: float
+    r21: float
+    r31: float
+    r21: float
+    r22: float
+    r32: float
 
     def __init__(self, row):
         x1 = float(row[IDX.X1])
@@ -316,8 +206,22 @@ class Box:
         self.y2 = y2
 
         self.lbl = labels_map[row[IDX.OBJECT]]
-        self.sin_angle = float(row[IDX.SIN_ANGLE])
-        self.cos_angle = float(row[IDX.COS_ANGLE])
+        self.r11 = float(row[IDX.R11])
+        self.r21 = float(row[IDX.R21])
+        self.r31 = float(row[IDX.R31])
+        self.r12 = float(row[IDX.R12])
+        self.r22 = float(row[IDX.R22])
+        self.r32 = float(row[IDX.R32])
+
+    def width(self):
+        return self.x2 - self.x1
+
+    def height(self):
+        return self.y2 - self.y1
+
+    def area(self):
+        return self.width() * self.height()
+
 
 @dataclass
 class Sample:
@@ -375,7 +279,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
     def __getitem__(self, index):
         # if self.batch[index] is None:
         #     self.batch[index] = self.get_batch(index)
-        
+
         # return self.batch[index]
         return self.get_batch(index)
 
@@ -406,7 +310,7 @@ class CSVDataset(keras.utils.all_utils.Sequence):
             num_boxes = len(boxes)
             BoundingBoxes = np.zeros((num_boxes, 4), dtype=np.float32)
             Classes = np.zeros((num_boxes,), dtype=np.float32)
-            Angles = np.zeros((num_boxes, 2), dtype=np.float32)
+            Angles = np.zeros((num_boxes, 6), dtype=np.float32)
 
             for iobj, obj in enumerate(boxes):
                 x1 = obj.x1 * IMG_OUT_SIZE
@@ -425,12 +329,18 @@ class CSVDataset(keras.utils.all_utils.Sequence):
                 h = y2 - y1
 
                 # where each box is of the format [x, y, width, height]
-                box = np.array([(x1 + x2) / 2.0, (y1 + y2) / 2.0, w, h], dtype=np.float32)
+                box = np.array(
+                    [(x1 + x2) / 2.0, (y1 + y2) / 2.0, w, h], dtype=np.float32
+                )
 
                 BoundingBoxes[iobj] = box
                 Classes[iobj] = float(obj.lbl)
-                Angles[iobj][0] = float(obj.sin_angle)
-                Angles[iobj][1] = float(obj.cos_angle)
+                Angles[iobj][0] = float(obj.r11)
+                Angles[iobj][1] = float(obj.r21)
+                Angles[iobj][2] = float(obj.r31)
+                Angles[iobj][3] = float(obj.r12)
+                Angles[iobj][4] = float(obj.r22)
+                Angles[iobj][5] = float(obj.r32)
 
             lbl_boxes.append(BoundingBoxes)
             lbl_classes.append(Classes)
@@ -453,8 +363,10 @@ class CSVDataset(keras.utils.all_utils.Sequence):
 
         # train_images_aug = self.seq(images=train_images)
 
-        retval = self.se.encode_batch(np.array(train_images), lbl_boxes, lbl_classes, lbl_angles)
+        retval = self.se.encode_batch(
+            np.array(train_images), lbl_boxes, lbl_classes, lbl_angles
+        )
 
-        assert(retval[1].shape[0] == self.batch_size)
+        assert retval[1].shape[0] == self.batch_size
 
         return retval

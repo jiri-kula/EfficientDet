@@ -1,13 +1,18 @@
 """Implementation of anchor boxes generator and encoder of training data."""
 
 import tensorflow as tf
+import sys
 from .utils import compute_iou
 
 
 class Anchors:
     """Anchor boxes generator."""
 
-    def __init__(self, aspect_ratios=[0.5, 1, 2], scales=[0, 1 / 3, 2 / 3]):
+    def __init__(
+        self,
+        aspect_ratios=[0.80836033,1.77034953, 2.73233873],
+        scales=[0, 1 / 3, 2 / 3],
+    ):
         """Initialize anchors generator.
 
         Args:
@@ -21,7 +26,9 @@ class Anchors:
         self._num_anchors = len(aspect_ratios) * len(scales)
 
         self._strides = [2**i for i in range(3, 8)]
-        self._areas = [i**2 for i in [32.0, 64.0, 128.0, 256.0, 512.0]]
+        self._areas = [
+            i**2 for i in [43.,  70.,  89., 105., 118.]
+        ]  # TODO: RV12 shape analysis
         self._anchor_dims = self._compute_dims()
 
     def _compute_dims(self):
@@ -43,7 +50,7 @@ class Anchors:
             all_dims.append(tf.stack(level_dims, axis=0))
         return tf.stack(all_dims, axis=0)
 
-    # @tf.function
+    @tf.function
     def _get_anchors(self, feature_height, feature_width, level):
         """Get anchors for with given height and width on given level.
 
@@ -57,10 +64,16 @@ class Anchors:
         """
         rx = tf.range(feature_width, dtype=tf.float32) + 0.5
         ry = tf.range(feature_height, dtype=tf.float32) + 0.5
-        xs = tf.tile(tf.reshape(rx, [1, -1]), [tf.shape(ry)[0], 1]) # this is like repmat, or meshgrid with the next line
-        ys = tf.tile(tf.reshape(ry, [-1, 1]), [1, tf.shape(rx)[0]]) # at feature dims (40, 20, 10, 5, 3, ...)
+        xs = tf.tile(
+            tf.reshape(rx, [1, -1]), [tf.shape(ry)[0], 1]
+        )  # this is like repmat, or meshgrid with the next line
+        ys = tf.tile(
+            tf.reshape(ry, [-1, 1]), [1, tf.shape(rx)[0]]
+        )  # at feature dims (40, 20, 10, 5, 3, ...)
 
-        centers = tf.stack([xs, ys], axis=-1) * self._strides[level - 3] # transfers to image dims (320)
+        centers = (
+            tf.stack([xs, ys], axis=-1) * self._strides[level - 3]
+        )  # transfers to image dims (320)
         centers = tf.reshape(centers, [-1, 1, 2])
         centers = tf.tile(centers, [1, self._num_anchors, 1])
         centers = tf.reshape(centers, [-1, 2])
@@ -70,7 +83,7 @@ class Anchors:
         )
         return tf.concat([centers, dims], axis=-1)
 
-    # @tf.function
+    @tf.function
     def get_anchors(self, image_height, image_width):
         """Get anchors for given height and width on all levels.
 
@@ -106,6 +119,9 @@ class SamplesEncoder:
         max_iou = tf.reduce_max(iou, axis=1)
         matched_gt_idx = tf.argmax(iou, axis=1)
         positive_mask = tf.greater_equal(max_iou, match_iou)
+
+        # assert len(tf.where(positive_mask)) > 0
+
         negative_mask = tf.less(max_iou, ignore_iou)
         ignore_mask = tf.logical_not(tf.logical_or(positive_mask, negative_mask))
         return (
@@ -114,7 +130,7 @@ class SamplesEncoder:
             tf.cast(ignore_mask, dtype=tf.float32),
         )
 
-    # @tf.autograph.experimental.do_not_convert
+    @tf.autograph.experimental.do_not_convert
     def _compute_box_target(self, anchor_boxes, matched_gt_boxes):
         box_target = tf.concat(
             [
@@ -126,30 +142,41 @@ class SamplesEncoder:
         box_target = box_target / self._box_variance
         return box_target
 
+    # @tf.autograph.experimental.do_not_convert
+    
     def _encode_sample(self, image_shape, gt_boxes, classes, angles):
         if self.anchor_boxes is None:
-            self.anchor_boxes = self._anchors.get_anchors(image_shape[1], image_shape[2])
-        
+            self.anchor_boxes = self._anchors.get_anchors(
+                image_shape[0], image_shape[1]
+            )
+
         matched_gt_idx, positive_mask, ignore_mask = self._match_anchor_boxes(
             self.anchor_boxes, gt_boxes
         )
-        matched_gt_boxes = tf.gather(gt_boxes, matched_gt_idx) # select one box from gt_boxes for each anchor
-        box_target = self._compute_box_target(self.anchor_boxes, matched_gt_boxes) # compute shift + scale of anchor to match 'gt box' 
+        matched_gt_boxes = tf.gather(
+            gt_boxes, matched_gt_idx
+        )  # select one box from gt_boxes for each anchor
+        box_target = self._compute_box_target(
+            self.anchor_boxes, matched_gt_boxes
+        )  # compute shift + scale of anchor to match 'gt box'
 
-        classes = tf.cast(classes, dtype=tf.float32)
+        # tf.print("classes:", classes, output_stream=sys.stderr)
+        # tf.print("angles:", angles, output_stream=sys.stderr)
         matched_gt_classes = tf.gather(classes, matched_gt_idx)
-        class_target = tf.where(tf.equal(positive_mask, 1.0), matched_gt_classes, -1.0)
+        class_target = tf.where(tf.equal(positive_mask, 1.0), tf.squeeze(matched_gt_classes), -1.0)
         class_target = tf.where(tf.equal(ignore_mask, 1.0), -2.0, class_target)
         class_target = tf.expand_dims(class_target, axis=-1)
 
-        num_samples = class_target.shape[0]
+        matched_gt_angles = tf.gather(angles, matched_gt_idx)
+        # tf.print("matched_gt_angles:", matched_gt_angles, output_stream=sys.stderr)
+        
+        # angle_target = tf.where(tf.equal(positive_mask, 1.0), matched_gt_angles, -1.0)
+        # angle_target = tf.where(tf.equal(ignore_mask, 1.0), -2.0, class_target)
+        # angle_target = tf.expand_dims(class_target, axis=-1)
 
-        single_target = tf.constant(angles, shape=(1, 2)) 
+        label = tf.concat([box_target, matched_gt_angles, class_target], axis=-1)
 
-        c = tf.constant([num_samples,1], tf.int32)
-        angle_target = tf.tile(single_target, c)
-
-        label = tf.concat([box_target, angle_target, class_target], axis=-1)
+        # assert len(tf.where(class_target > -1.0)) > 0
 
         return label
 
@@ -161,7 +188,9 @@ class SamplesEncoder:
 
         labels = tf.TensorArray(dtype=tf.float32, size=batch_size)
         for i in range(batch_size):
-            label = self._encode_sample(images_shape, gt_boxes[i], classes[i], angles[i])
+            label = self._encode_sample(
+                images_shape, gt_boxes[i], classes[i], angles[i]
+            )
             labels = labels.write(i, label)
         images = tf.keras.applications.efficientnet.preprocess_input(images)
         return images, labels.stack()

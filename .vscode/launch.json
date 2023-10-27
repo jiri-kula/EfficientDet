@@ -5,6 +5,14 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
       "name": "train",
       "type": "python",
       "request": "launch",
@@ -12,8 +20,8 @@
       "console": "integratedTerminal",
       "justMyCode": false,
       "env": {
-        // "CUDA_VISIBLE_DEVICES": ""
-        "PATH": "/usr/local/cuda/bin"
+        // "CUDA_VISIBLE_DEVICES": "",
+        "PATH": "/usr/local/cuda-12.2/bin"
       },
     },
     {
@@ -44,15 +52,24 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "fit/epoch_1041",
+        "checkpoints/efficientnet-lite0-robotic-3-4-aug-1x3/weights-43",
         "-n",
         "efficientdet_d0",
         "-i",
-        "/mnt/c/Edwards/Output/RV12-lic/image_RV12-lic_0893.png",
+        // "/mnt/c/Edwards/rv5/rv5_00003604.png",
+        // "/mnt/c/Edwards/annotation/RV12/drazka-rotation-3/nedrazka_rv12/image_nedrazka_rv12_0764.png",
+        "/home/jiri/winpart/Edwards/annotation/RV12/robotic-3-aug//drazka_rv12/image_drazka_rv12_0011.png",
         "-c",
-        "6"
+        "3"
       ],
       "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "test_tflite",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/test_tflite.py",
       "justMyCode": false
     }
   ]

@@ -197,15 +197,15 @@ class EfficientDet(tf.keras.Model):
         # return retval
         return boxes, angles, classes
 
-    def _freeze_vars(self):
-        if self.var_freeze_expr:
-            return [
-                v
-                for v in self.trainable_variables
-                if not re.match(self.var_freeze_expr, v.name)
-            ]
+    def _freeze_vars(self, var_freeze_expr):
+        return [
+            v
+            for v in self.trainable_variables
+            if not re.match(var_freeze_expr, v.name)
+        ]
 
-    @tf.function
+    # @tf.autograph.experimental.do_not_convert
+    # @tf.function
     def train_step(self, data):
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.
@@ -224,12 +224,14 @@ class EfficientDet(tf.keras.Model):
             )
 
             # filter anchor boxes
-            positive_mask = tf.cast(tf.greater(y_true[..., 10], -1.0), dtype=tf.float32)
+            positive_mask = tf.greater(y_true[..., 10], -1.0)
             ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
-            angle_ignore_mask = tf.cast(
-                tf.equal(tf.reduce_sum(angle_labels), 0.0), 
-                dtype=tf.float32
-            )
+
+            angle_positive_mask = tf.greater(tf.reduce_sum(tf.abs(angle_labels)), 0.0)
+            angle_positive_mask = tf.math.logical_and(positive_mask, angle_positive_mask)
+
+            positive_mask = tf.cast(positive_mask, dtype=tf.float32)
+            angle_positive_mask = tf.cast(angle_positive_mask, dtype=tf.float32)
 
             # loss for each anchor
             clf_loss = self.class_loss(cls_labels, cls_preds)
@@ -240,7 +242,11 @@ class EfficientDet(tf.keras.Model):
             # zero out irrelevant anchors
             clf_loss = tf.where(tf.equal(ignore_mask, 1.0), 0.0, clf_loss)
             box_loss = tf.where(tf.equal(positive_mask, 1.0), box_loss, 0.0)
-            ang_loss = tf.where(tf.equal(positive_mask, 1.0), ang_loss, 0.0)
+
+            ang_loss = tf.where(tf.equal(angle_positive_mask, 1.0), ang_loss, 0.0)
+            # ang_loss = tf.where(# zero out angle loss where label does not carry it (all zeros)
+            #     tf.equal(angle_ignore_mask, 1.0), 0.0, ang_loss
+            # )  
 
             # average loss across samples so that there remains a scalar loss for each batch
             normalizer = tf.reduce_sum(positive_mask, axis=-1)
@@ -250,14 +256,11 @@ class EfficientDet(tf.keras.Model):
             box_loss = tf.math.divide_no_nan(
                 tf.reduce_sum(box_loss, axis=-1), normalizer
             )
+
+            normalizer = tf.reduce_sum(angle_positive_mask, axis=-1)
             ang_loss = tf.math.divide_no_nan(
                 tf.reduce_sum(ang_loss, axis=-1), normalizer
             )
-            # zero out angle loss where label does not carry it (all zeros)
-            ang_loss = tf.where(
-                tf.equal(angle_ignore_mask, 1.0), 0.0, ang_loss
-            )  
-
 
             # average loss across batches so that remains a scalar loss for each (box, angle, class)
             losses = tf.reduce_mean(tf.stack([box_loss, ang_loss, clf_loss]), axis=-1)
@@ -265,9 +268,14 @@ class EfficientDet(tf.keras.Model):
             # let total loss be a sum of particular losses = box + angle + class
             loss = tf.reduce_sum(losses)
 
+            # have_angles = tf.reduce_all(tf.equal(positive_mask, angle_positive_mask))
         # Compute gradients
         if self.var_freeze_expr is not None:
-            trainable_vars = self._freeze_vars()
+            trainable_vars = self._freeze_vars(self.var_freeze_expr)
+            # if have_angles:
+            #     trainable_vars = self._freeze_vars(tf.strings.join([self.var_freeze_expr, '|angle_regressor']))
+            # else:
+            #     trainable_vars = self._freeze_vars(self.var_freeze_expr)
         else:
             trainable_vars = self.trainable_variables
         gradients = tape.gradient(loss, trainable_vars)

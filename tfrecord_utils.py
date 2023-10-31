@@ -42,10 +42,11 @@ image_labels = {
 }
 
 path_map = {
-  'X:\\Dataset\\zaznamy_z_vyroby\\' : "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/",
-  '/home/jiri/winpart/' : '/home/jiri/remote_legion/winpart/',
-  '/home/jiri/DigitalAssistant/python/' : '/home/jiri/remote_legion/DigitalAssistant/python/',
-  '/var/tmp/DetectionData/Dataset/' : '/home/jiri/remote_legion/winpart/Edwards/DetectionData/Dataset/'
+  'X:\\Dataset\\zaznamy_z_vyroby\\' : "/home/jiri/remote_sd/DetectionData/Dataset/zaznamy_z_vyroby/",
+  # '/home/jiri/winpart/' : '/home/jiri/remote_legion/winpart/',
+  # '/home/jiri/DigitalAssistant/python/' : '/home/jiri/remote_legion/DigitalAssistant/python/',
+  '/var/tmp/DetectionData/Dataset/' : '/home/jiri/remote_sd/DetectionData/Dataset/',
+  'C:\\Edwards\\DetectionData\\Dataset\\' : '/home/jiri/winpart/Edwards/DetectionData/Dataset/'
 }
 
 def image_example(rows):
@@ -64,13 +65,38 @@ def image_example(rows):
   r32s = []
 
   for i in range(len(rows)):
-    classes.append(image_labels[rows.iloc[i]["OBJECT"]])
-    xmins.append(rows.iloc[i]["X1"])
-    ymins.append(rows.iloc[i]["Y1"])
-    xmaxes.append(rows.iloc[i]["X2"])
-    ymaxes.append(rows.iloc[i]["Y2"])
+    try:
+      classes.append(image_labels[rows.iloc[i]["OBJECT"]])
+    except:
+      print(rows.iloc[i]["OBJECT"], rows["PATH"].values)
 
-    if not rows.iloc[i]["X1"]:
+    xmin = rows.iloc[i]["X1"]
+    ymin = rows.iloc[i]["Y1"]
+
+    xmax = rows.iloc[i]["X2"]
+    ymax = rows.iloc[i]["Y2"]
+
+    # check axis swap of x
+    dx = xmax - xmin
+    if dx == 0:
+      raise ValueError("dx == 0 in ", rows["PATH"].values[0])
+
+    if dx < 0:
+      xmax, xmin = xmin, xmax
+
+    # check axis swap of y
+    dy = ymax - ymin
+    if dy == 0:
+      raise ValueError("dy == 0 in ", rows["PATH"].values[0])
+    if dy < 0:
+      ymax, ymin = ymin, ymax
+
+    xmins.append(xmin)
+    ymins.append(ymin)
+    xmaxes.append(xmax)
+    ymaxes.append(ymax)
+
+    if not np.isnan(rows.iloc[i]["R11"]):
       r11s.append(rows.iloc[i]["R11"])
       r21s.append(rows.iloc[i]["R21"])
       r31s.append(rows.iloc[i]["R31"])
@@ -127,8 +153,8 @@ def image_example(rows):
 
 # set meta file path
 # meta_train = "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
-meta_train = "/home/jiri/remote_legion/winpart/Edwards/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
-# meta_train = "/home/jiri/remote_legion/winpart/Edwards/annotation/RV12/merge-e.csv"
+# meta_train = "/home/jiri/remote_sd/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
+meta_train = "/home/jiri/DigitalAssistant/python/dataset6/images/meta.csv"
 
 # load csv as pandas DataFrame
 df = pd.read_csv(meta_train, header=None, names=column_names)
@@ -142,7 +168,7 @@ bar = Bar(
 
 N = len(df)
 row = 0
-with tf.io.TFRecordWriter('zaznamy_z_vyroby.tfrecord') as file_writer:
+with tf.io.TFRecordWriter('/home/jiri/winpart/Edwards/synth_6.tfrecord') as file_writer:
   while row < N:
     # take image path from the first row
     the_path = df.iloc[row].PATH

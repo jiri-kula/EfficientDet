@@ -10,7 +10,7 @@ class Anchors:
 
     def __init__(
         self,
-        aspect_ratios=[0.80836033,1.77034953, 2.73233873],
+        aspect_ratios=[0.80836033, 1.77034953, 2.73233873],
         scales=[0, 1 / 3, 2 / 3],
     ):
         """Initialize anchors generator.
@@ -27,7 +27,7 @@ class Anchors:
 
         self._strides = [2**i for i in range(3, 8)]
         self._areas = [
-            i**2 for i in [43.,  70.,  89., 105., 118.]
+            i**2 for i in [43.0, 70.0, 89.0, 105.0, 118.0]
         ]  # TODO: RV12 shape analysis
         self._anchor_dims = self._compute_dims()
 
@@ -130,7 +130,7 @@ class SamplesEncoder:
             tf.cast(ignore_mask, dtype=tf.float32),
         )
 
-    @tf.autograph.experimental.do_not_convert
+    # @tf.autograph.experimental.do_not_convert
     def _compute_box_target(self, anchor_boxes, matched_gt_boxes):
         box_target = tf.concat(
             [
@@ -143,7 +143,7 @@ class SamplesEncoder:
         return box_target
 
     # @tf.autograph.experimental.do_not_convert
-    
+    # @tf.function
     def _encode_sample(self, image_shape, gt_boxes, classes, angles):
         if self.anchor_boxes is None:
             self.anchor_boxes = self._anchors.get_anchors(
@@ -163,13 +163,15 @@ class SamplesEncoder:
         # tf.print("classes:", classes, output_stream=sys.stderr)
         # tf.print("angles:", angles, output_stream=sys.stderr)
         matched_gt_classes = tf.gather(classes, matched_gt_idx)
-        class_target = tf.where(tf.equal(positive_mask, 1.0), tf.squeeze(matched_gt_classes), -1.0)
+        class_target = tf.where(
+            tf.equal(positive_mask, 1.0), tf.squeeze(matched_gt_classes), -1.0
+        )
         class_target = tf.where(tf.equal(ignore_mask, 1.0), -2.0, class_target)
         class_target = tf.expand_dims(class_target, axis=-1)
 
         matched_gt_angles = tf.gather(angles, matched_gt_idx)
         # tf.print("matched_gt_angles:", matched_gt_angles, output_stream=sys.stderr)
-        
+
         # angle_target = tf.where(tf.equal(positive_mask, 1.0), matched_gt_angles, -1.0)
         # angle_target = tf.where(tf.equal(ignore_mask, 1.0), -2.0, class_target)
         # angle_target = tf.expand_dims(class_target, axis=-1)

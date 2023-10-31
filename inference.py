@@ -7,6 +7,7 @@ import numpy as np
 from model.anchors import Anchors
 from model.utils import to_corners, resize_and_pad
 from model.efficientdet import EfficientDet
+from tfrecord_decode import decode_fn, decode_raw, raw2label
 
 IMG_SIZE = 320
 
@@ -71,7 +72,7 @@ def make_prediction(
     classes = tf.nn.sigmoid(classes)
 
     valid_dets = 0
-    while valid_dets < 1 and score_threshold > 0:
+    while valid_dets < 2 and score_threshold > 0:
         nms = tf.image.combined_non_max_suppression(
             tf.expand_dims(boxes, axis=2),
             classes,
@@ -155,16 +156,29 @@ args = parser.parse_args()
 
 model = EfficientDet(
     channels=64,
-    num_classes=args.c,
+    num_classes=3,
     num_anchors=9,
     bifpn_depth=3,
     heads_depth=3,
     name="efficientdet_d0",
+    export_tflite=False,
+)
+
+model.var_freeze_expr = (
+    "efficientnet-lite0|resample_p6"  # "efficientnet-lite0|resample_p6|fpn_cells"
 )
 model.build(input_shape=(1, IMG_SIZE, IMG_SIZE, 3))
 model.load_weights(args.w)
 
-raw_image = tf.io.read_file(args.i)
-image = tf.image.decode_image(raw_image, channels=3)
+# raw_image = tf.io.read_file(args.i)
+# image = tf.image.decode_image(raw_image, channels=3)
+
+example_path = "/home/jiri/winpart/Edwards/merge-e.tfrecord"
+# "/home/jiri/winpart/Edwards/zaznamy_z_vyroby.tfrecord"
+# "/home/jiri/winpart/Edwards/merge-e.tfrecord"
+
+ds = tf.data.TFRecordDataset([example_path]).skip(50000).take(1)
+sample = decode_fn(next(iter(ds)))
+image = tf.cast(sample[0], tf.uint8)
 
 make_prediction(image, score_threshold=1.0)

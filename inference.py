@@ -173,11 +173,11 @@ model.load_weights(args.w)
 # raw_image = tf.io.read_file(args.i)
 # image = tf.image.decode_image(raw_image, channels=3)
 
-example_path = "/home/jiri/winpart/Edwards/merge-e.tfrecord"
-# "/home/jiri/winpart/Edwards/zaznamy_z_vyroby.tfrecord"
-# "/home/jiri/winpart/Edwards/merge-e.tfrecord"
+example_path = "/home/jiri/winpart/Edwards/tfrecords/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_03_rv12_09_18_26.tfrecord"
+example_path = "/home/jiri/winpart/Edwards/tfrecords/synth_6.tfrecord"
+example_path = "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
 
-ds = tf.data.TFRecordDataset([example_path]).skip(50000).take(1)
+ds = tf.data.TFRecordDataset([example_path]).skip(1).take(1)
 sample = decode_fn(next(iter(ds)))
 image = tf.cast(sample[0], tf.uint8)
 

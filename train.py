@@ -1,13 +1,15 @@
 # %%
-"""Script for creating and training a new model."""
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 import tensorflow as tf
 
 TFLITE_CONVERSION = False
 
-EAGERLY = True
+EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
-if EAGERLY:
-    tf.data.experimental.enable_debug_mode()
+# if EAGERLY:
+#     tf.data.experimental.enable_debug_mode()
 
 import datetime, os
 import numpy as np
@@ -15,36 +17,42 @@ import keras
 from model.efficientdet import EfficientDet
 from model.losses import EffDetLoss, AngleLoss
 from model.anchors import SamplesEncoder, Anchors
+import random
 
 # from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
 from model.utils import to_corners
 
-from dataset_api import create_dataset, process_tfrecord
+import dataset_api
 from tfrecord_decode import decode_fn
 
 EPOCHS = 200
 BATCH_SIZE = 4 if EAGERLY else 64
-checkpoint_dir = "checkpoints/synth-merge-e-1x1"
+checkpoint_dir = "checkpoints/ZMRS_norot_bc"
 
-# train_data1 = create_dataset(
-#     "/media/jiri/D6667DDE667DBFB3/Edwards/annotation/RV12/drazka-nedrazka-balanced.csv", take_every=20
-# )
+# laod list of tfrecord files
+with open("list_12_norot.txt") as file:
+    train_list  = [line.rstrip() for line in file]
+random.shuffle(train_list)
 
-# train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
-# train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
-# train_data4 = create_dataset(
-#     "/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv"
-# )
+# print shuffeled tfrecord files
+for item in train_list:
+    if not os.path.isfile(item):
+        raise ValueError(item)
 
-train_data = tf.data.TFRecordDataset("zaznamy_z_vyroby.tfrecord").map(decode_fn)
+train_data = tf.data.TFRecordDataset(
+    # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
+    train_list
+).map(decode_fn)
 
-# train_data = train_data4.shuffle(256)
+# num_samples = train_data.cardinality().numpy()
+train_data = train_data.shuffle(4096)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
 
+gen_data = dataset_api.create_generator()
+
 # %%
 NUM_CLASSES = 3
-
 
 model = EfficientDet(
     channels=64,
@@ -56,8 +64,10 @@ model = EfficientDet(
     export_tflite=TFLITE_CONVERSION,
 )
 
-model.var_freeze_expr = "efficientnet-lite0"
-# model.var_freeze_expr = None
+model.var_freeze_expr = (
+    "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
+)
+print("var_freeze_expr: ", model.var_freeze_expr)
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
@@ -119,7 +129,11 @@ if not TFLITE_CONVERSION:
         use_multiprocessing=False,
         validation_data=None,
         initial_epoch=completed_epochs,
-        callbacks=[model_checkpoint_callback, tensorboard_callback],
+        callbacks=[
+            model_checkpoint_callback,
+            tensorboard_callback,
+            tf.keras.callbacks.TerminateOnNaN(),
+        ],
     )
 
 # %%

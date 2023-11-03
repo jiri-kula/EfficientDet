@@ -113,7 +113,7 @@ class EfficientDet(tf.keras.Model):
         )
 
         self.angle_reg = AngleRegressor(
-            channels=channels,
+            channels=2*64,
             num_anchors=num_anchors,
             depth=heads_depth,
             kernel_size=box_kernel_size,
@@ -173,7 +173,7 @@ class EfficientDet(tf.keras.Model):
             boxes.append(tmp)
 
             # angles
-            tmp1 = self.angle_reg(b[i], training=training)
+            tmp1 = self.angle_reg(tf.concat([b[i], c[i]], axis=-1), training=training)
             # tmp = tf.reshape(
             #     tmp1,
             #     [batch_size, -1, 6],  # rotation: r13, r23

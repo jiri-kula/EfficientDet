@@ -119,7 +119,7 @@ def create_generator():
     return tf.data.Dataset.from_generator(
         gen,
         output_signature=(tf.TensorSpec(shape=(320, 320, 3), dtype=tf.float32)),
-    ).map(process)
+    ).map(process, num_parallel_calls=1)
 
 
 if __name__ == "__main__":

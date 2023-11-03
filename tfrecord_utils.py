@@ -1,12 +1,14 @@
 #%%
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
-
 import numpy as np
 import IPython.display as display
 import cv2 as cv
 import pandas as pd
 from dataset_api import load_image, column_names
 from progress.bar import Bar
+import sys
 
 # %%
 # The following functions can be used to convert a value to a type compatible
@@ -46,7 +48,17 @@ path_map = {
   # '/home/jiri/winpart/' : '/home/jiri/remote_legion/winpart/',
   # '/home/jiri/DigitalAssistant/python/' : '/home/jiri/remote_legion/DigitalAssistant/python/',
   '/var/tmp/DetectionData/Dataset/' : '/home/jiri/remote_sd/DetectionData/Dataset/',
-  'C:\\Edwards\\DetectionData\\Dataset\\' : '/home/jiri/winpart/Edwards/DetectionData/Dataset/'
+  'C:\\Edwards\\DetectionData\\Dataset\\' : '/home/jiri/winpart/Edwards/DetectionData/Dataset/',
+  'C:/Edwards/' : '/home/jiri/winpart/Edwards/',
+  '/mnt/c/Edwards/' : '/home/jiri/winpart/Edwards/',
+  'C:/Users/nick/nullspaces/test-auto-annotation/testing/output/RV12/' : '/home/jiri/winpart/Edwards/annotation_mykyta/annotation/RV12/RV12/',
+  'C:/Users/nick/nullspaces/test-auto-annotation/testing/output/dataset5-zdroj/drazka_rv5/' : '/home/jiri/winpart/Edwards/annotation_mykyta/annotation/RV5/RV5/RV5/dataset5-zdroj/drazka_rv5/',
+  'C:/Users/nick/nullspaces/test-auto-annotation/testing/output/dataset5-zdroj/nedrazka_rv5/' : '/home/jiri/winpart/Edwards/annotation_mykyta/annotation/RV5/RV5/RV5/dataset5-zdroj/nedrazka_rv5/',
+  'C:/Users/nick/nullspaces/test-auto-annotation/testing/output/hala/' : '/home/jiri/winpart/Edwards/annotation_mykyta/annotation/RV5/RV5/RV5/hala/',
+  'C:/Users/nick/nullspaces/test-auto-annotation/testing/output/lcd/' : '/home/jiri/winpart/Edwards/annotation_mykyta/annotation/RV5/RV5/RV5/lcd/',
+  'C:/Users/nick/nullspaces/test-auto-annotation/testing/output/ruka/' : '/home/jiri/winpart/Edwards/annotation_mykyta/annotation/RV5/RV5/RV5/ruka/',
+  'C:/Users/nick/nullspaces/test-auto-annotation/testing/output/RV8/' : '/home/jiri/winpart/Edwards/annotation_mykyta/annotation/RV8/RV8/',
+  
 }
 
 def image_example(rows):
@@ -104,12 +116,21 @@ def image_example(rows):
       r22s.append(rows.iloc[i]["R22"])
       r32s.append(rows.iloc[i]["R32"])
     else:
-      r11s.append(0.0)
-      r21s.append(0.0)
-      r31s.append(0.0)
-      r12s.append(0.0)
-      r22s.append(0.0)
-      r32s.append(0.0)
+      if rows.iloc[i]["OBJECT"].find("ne") > -1:
+        r11s.append(0.0)
+        r21s.append(0.0)
+        r31s.append(1.0)
+        r12s.append(0.0)
+        r22s.append(-1.0)
+        r32s.append(0.0)
+      else:
+        r11s.append(0.0)
+        r21s.append(0.0)
+        r31s.append(-1.0)
+        r12s.append(0.0)
+        r22s.append(-1.0)
+        r32s.append(0.0)
+
 
 
   image_path = rows.iloc[0]["PATH"]
@@ -150,42 +171,49 @@ def image_example(rows):
 # with open(image_path, 'rb') as image_bytes:
 #   image_example(image_bytes.read(), image_labels['rv12'])
 # %%
+def process(meta_train):
+  # set meta file path
+  # meta_train = "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
+  # meta_train = "/home/jiri/remote_sd/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
+  # meta_train = "/home/jiri/DigitalAssistant/python/dataset6/images/meta.csv"
+  tfrecord_path = '/home/jiri/winpart/Edwards/tfrecords_allrot/' + os.path.split(meta_train)[0].replace("/", "_") + '.tfrecord'
 
-# set meta file path
-# meta_train = "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
-# meta_train = "/home/jiri/remote_sd/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
-meta_train = "/home/jiri/DigitalAssistant/python/dataset6/images/meta.csv"
+  print("Processing: ", meta_train)
+  print("Output: ", tfrecord_path)
 
-# load csv as pandas DataFrame
-df = pd.read_csv(meta_train, header=None, names=column_names)
-df = df.sort_values(by=["PATH"]) # removing sort breaks the algorithm
+  # load csv as pandas DataFrame
+  df = pd.read_csv(meta_train, header=None, names=column_names)
+  df = df.sort_values(by=["PATH"]) # removing sort breaks the algorithm
 
-bar = Bar(
-    "Build cache",
-    max=len(df),
-    suffix="%(percent).1f%% - %(eta)ds",
-)
+  bar = Bar(
+      "Build cache",
+      max=len(df),
+      suffix="%(percent).1f%% - %(eta)ds",
+  )
 
-N = len(df)
-row = 0
-with tf.io.TFRecordWriter('/home/jiri/winpart/Edwards/synth_6.tfrecord') as file_writer:
-  while row < N:
-    # take image path from the first row
-    the_path = df.iloc[row].PATH
+  N = len(df)
+  row = 0
+  with tf.io.TFRecordWriter(tfrecord_path) as file_writer:
+    while row < N:
+      # take image path from the first row
+      the_path = df.iloc[row].PATH
 
-    last_row = row + 1
-    while last_row < N and df.iloc[last_row]["PATH"] == the_path:
-      last_row += 1
+      last_row = row + 1
+      while last_row < N and df.iloc[last_row]["PATH"] == the_path:
+        last_row += 1
 
-    # create tf.Example (tfrecotrd)
-    sample = image_example(df[row:last_row])
+      # create tf.Example (tfrecotrd)
+      sample = image_example(df[row:last_row])
 
-    # write to tfrecord file
-    file_writer.write(sample.SerializeToString())
-      
-    num_samples = last_row - row
-    row = last_row
+      # write to tfrecord file
+      file_writer.write(sample.SerializeToString())
+        
+      num_samples = last_row - row
+      row = last_row
 
-    bar.next(num_samples)
-  bar.finish()
+      bar.next(num_samples)
+    bar.finish()
+
 # %%
+if __name__ == "__main__":
+    process(sys.argv[1])

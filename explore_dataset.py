@@ -6,9 +6,11 @@ import numpy as np
 import sys
 import time
 from mpl_toolkits.axes_grid1 import ImageGrid
+from drawing import show_gizmo
 
 #%%
-example_path = "/home/jiri/winpart/Edwards/zaznamy_z_vyroby.tfrecord"
+example_path = "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_DigitalAssistant_python_dataset4_images.tfrecord"
+
 # train_data = tf.data.TFRecordDataset(example_path).map(decode_fn)
 
 im = []
@@ -25,7 +27,7 @@ boxes = []
 #             anchor_encoding = label[idx, :4]
 
 i = 0
-for item in tf.data.TFRecordDataset([example_path]).map(decode_raw).skip(800*64).take(10):
+for item in tf.data.TFRecordDataset([example_path]).map(decode_raw).skip(2).take(5):
     # image
     image = tf.io.decode_png(item["image_raw"])
     image = tf.image.resize(image, [320, 320])
@@ -56,8 +58,8 @@ for item in tf.data.TFRecordDataset([example_path]).map(decode_raw).skip(800*64)
 
     if not (tf.reduce_all(tf.equal([r11, r21, r31, r12, r22, r32], 0.0))):
         tf.print(item["image_path"])
-        tf.print([r11, r21, r31, r12, r22, r32])
-
+    tf.print("Rx:", [r11, r21, r31, r12, r22, r32])
+    
     i += 1
     print('\r>> You have finished %d' % i, end="")
     sys.stdout.flush()
@@ -77,6 +79,8 @@ for item in tf.data.TFRecordDataset([example_path]).map(decode_raw).skip(800*64)
         )
         plt.gca().add_patch(patch)
 
+        print([r11[i], r21[i], r31[i], r12[i], r22[i], r32[i]])
+        show_gizmo([r11[i], r21[i], r31[i], r12[i], r22[i], r32[i]], plt.gca(), x1, y1, x2-x1, y2-y1)
 
     plt.show()
 
@@ -98,3 +102,5 @@ for item in tf.data.TFRecordDataset([example_path]).map(decode_raw).skip(800*64)
 
 # plt.show()
 
+
+# %%

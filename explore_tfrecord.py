@@ -2,13 +2,9 @@
 import tensorflow as tf
 from tfrecord_decode import decode_raw, decode_fn, raw2label
 import os.path
+from tfrecord_files import train_list
 
-ds = tf.data.TFRecordDataset(
-    [
-        "/home/jiri/winpart/Edwards/merge-e.tfrecord",  # this is mykyta + dataset4 + dataset6
-        "/home/jiri/winpart/Edwards/zaznamy_z_vyroby.tfrecord",  # this is only zaznamy_z_vyroby
-    ]
-)
+ds = tf.data.TFRecordDataset(train_list)
 
 folders = []
 

@@ -10,7 +10,10 @@
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "justMyCode": true
+      "justMyCode": true,
+      "args": [
+        "/home/jiri/remote_sd/DetectionData/Dataset/zaznamy_z_vyroby/2023_03_08/rv12/09_47_27/meta.csv"
+      ]
     },
     {
       "name": "train",
@@ -52,13 +55,13 @@
       "program": "${workspaceFolder}/inference.py",
       "args": [
         "-w",
-        "checkpoints/efficientnet-lite0-robotic-3-4-aug-1x3/weights-43",
+        "checkpoints/tfrecord_allrot/weights-16",
         "-n",
         "efficientdet_d0",
         "-i",
         // "/mnt/c/Edwards/rv5/rv5_00003604.png",
-        // "/mnt/c/Edwards/annotation/RV12/drazka-rotation-3/nedrazka_rv12/image_nedrazka_rv12_0764.png",
-        "/home/jiri/winpart/Edwards/annotation/RV12/robotic-3-aug//drazka_rv12/image_drazka_rv12_0011.png",
+        "/home/jiri/remote_sd/DetectionData/Dataset/zaznamy_z_vyroby/2023_03_23/rv12/06_43_51/file_0189.png",
+        // "/home/jiri/DigitalAssistant/python/dataset6/images/0005624.png",
         "-c",
         "3"
       ],

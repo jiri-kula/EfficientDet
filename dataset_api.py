@@ -1,7 +1,7 @@
 # %%
 EAGERLY = False
 
-import sys
+from render_to_image import BladeGenerator
 
 import tensorflow as tf
 
@@ -14,9 +14,7 @@ import numpy as np
 
 from model.anchors import SamplesEncoder
 
-sys.path.insert(1, "/home/jiri/DigitalAssistant/python")
 
-from render_to_image import BladeGenerator
 
 
 column_names = [
@@ -110,7 +108,7 @@ def create_dataset(meta_train, take_every=None):
 
 # %%
 def create_generator():
-    def process(thumb):
+    def process3d(thumb, box, cMo):
         return thumb
 
     gen = BladeGenerator()
@@ -118,8 +116,18 @@ def create_generator():
 
     return tf.data.Dataset.from_generator(
         gen,
-        output_signature=(tf.TensorSpec(shape=(320, 320, 3), dtype=tf.float32)),
-    ).map(process, num_parallel_calls=1)
+        output_signature=(
+            tf.TensorSpec(shape=(), dtype=tf.float32),
+            tf.TensorSpec(shape=(), dtype=tf.float32),
+            tf.TensorSpec(shape=(), dtype=tf.float32)
+            )
+
+        # output_signature=(
+        #     tf.TensorSpec(shape=(320, 320, 3), dtype=tf.float32),
+        #     tf.TensorSpec(shape=(1, 4), dtype=tf.float32),
+        #     tf.TensorSpec(shape=(3, 3), dtype=tf.float32)
+        #     ),
+    ).map(process3d, num_parallel_calls=1)
 
 
 if __name__ == "__main__":

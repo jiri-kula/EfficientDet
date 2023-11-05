@@ -204,11 +204,12 @@ class EfficientDet(tf.keras.Model):
             if not re.match(var_freeze_expr, v.name)
         ]
 
-    # @tf.autograph.experimental.do_not_convert
     # @tf.function
+    # @tf.autograph.experimental.do_not_convert
     def train_step(self, data):
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.
+        tf.print("data: ", data)
         x, y_true = data
 
         with tf.GradientTape() as tape:

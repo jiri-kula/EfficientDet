@@ -390,7 +390,7 @@ class AngleRegressor(tf.keras.layers.Layer):
 
     def __init__(
         self,
-        channels=2*64,
+        channels=64,
         num_anchors=9,
         depth=3,
         kernel_size=3,
@@ -425,10 +425,11 @@ class AngleRegressor(tf.keras.layers.Layer):
                 kernel_size,
                 padding="same",
                 depth_multiplier=depth_multiplier,
-                pointwise_initializer=tf.initializers.variance_scaling(),
-                depthwise_initializer=tf.initializers.variance_scaling(),
-                bias_initializer=tf.zeros_initializer(),
+                pointwise_initializer=tf.keras.initializers.GlorotUniform(),
+                depthwise_initializer=tf.keras.initializers.GlorotUniform(),
+                bias_initializer=tf.keras.initializers.GlorotUniform(),
                 name=f"angle_reg_separable_conv_{i}",
+                activation=None
                 # activation=tf.keras.layers.Activation(tf.nn.tanh),
             )
             for i in range(depth)
@@ -445,10 +446,11 @@ class AngleRegressor(tf.keras.layers.Layer):
             kernel_size,
             padding="same",
             depth_multiplier=depth_multiplier,
+            # activation=None,
             activation=tf.keras.layers.Activation(tf.nn.tanh),
-            pointwise_initializer=tf.initializers.variance_scaling(),
-            depthwise_initializer=tf.initializers.variance_scaling(),
-            bias_initializer=tf.zeros_initializer(),
+            pointwise_initializer=tf.keras.initializers.GlorotUniform(),
+            depthwise_initializer=tf.keras.initializers.GlorotUniform(),
+            bias_initializer=tf.keras.initializers.GlorotNormal(),
             name="angle_preds",
         )
 

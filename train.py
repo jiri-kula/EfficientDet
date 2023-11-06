@@ -26,11 +26,11 @@ import dataset_api
 from tfrecord_decode import decode_fn
 
 EPOCHS = 200
-BATCH_SIZE = 4 if EAGERLY else 64
-checkpoint_dir = "checkpoints/ZMRS_norot_bc"
+BATCH_SIZE = 4 if EAGERLY else 16
+checkpoint_dir = "checkpoints/kernel_8"
 
 # laod list of tfrecord files
-with open("list_12_norot.txt") as file:
+with open("list_12_norot_simple.txt") as file:
     train_list  = [line.rstrip() for line in file]
 random.shuffle(train_list)
 
@@ -49,7 +49,7 @@ train_data = train_data.shuffle(4096)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
 
-gen_data = dataset_api.create_generator()
+# gen_data = dataset_api.create_generator()
 
 # %%
 NUM_CLASSES = 3
@@ -64,9 +64,8 @@ model = EfficientDet(
     export_tflite=TFLITE_CONVERSION,
 )
 
-model.var_freeze_expr = (
-    "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
-)
+# "efficientnet-lite0|resample_p6|fpn_cells|class_det|box_regressor"
+model.var_freeze_expr = ("class_det|box_regressor")
 print("var_freeze_expr: ", model.var_freeze_expr)
 
 model.compile(

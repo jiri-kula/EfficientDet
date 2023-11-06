@@ -170,6 +170,7 @@ class SamplesEncoder:
         class_target = tf.expand_dims(class_target, axis=-1)
 
         matched_gt_angles = tf.gather(angles, matched_gt_idx)
+        # matched_gt_angles = tf.add(1.0, matched_gt_angles)
         # tf.print("matched_gt_angles:", matched_gt_angles, output_stream=sys.stderr)
 
         # angle_target = tf.where(tf.equal(positive_mask, 1.0), matched_gt_angles, -1.0)

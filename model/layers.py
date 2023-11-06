@@ -461,7 +461,7 @@ class AngleRegressor(tf.keras.layers.Layer):
         for i in range(self.depth):
             inputs = self.convs[i](inputs)
             # inputs = self.bns[i](inputs, training=training)
-            # inputs = self.act(inputs)
+            inputs = self.act(inputs)
         x = self.angles(inputs)  # batch x 40 x 40 x 64
 
         batch_size = tf.shape(inputs)[0]

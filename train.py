@@ -27,7 +27,7 @@ from tfrecord_decode import decode_fn
 
 EPOCHS = 200
 BATCH_SIZE = 4 if EAGERLY else 16
-checkpoint_dir = "checkpoints/kernel_11"
+checkpoint_dir = "checkpoints/kernel_12"
 
 # laod list of tfrecord files
 with open("list_12_norot_simple.txt") as file:

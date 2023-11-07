@@ -27,7 +27,7 @@ from tfrecord_decode import decode_fn
 
 EPOCHS = 200
 BATCH_SIZE = 4 if EAGERLY else 16
-checkpoint_dir = "checkpoints/kernel_13"
+checkpoint_dir = "checkpoints/kernel_14b"
 
 # laod list of tfrecord files
 with open("list_12_norot_simple.txt") as file:
@@ -65,7 +65,7 @@ model = EfficientDet(
 )
 
 # "efficientnet-lite0|resample_p6|fpn_cells|class_det|box_regressor"
-model.var_freeze_expr = ("class_det|box_regressor")
+# model.var_freeze_expr = ("class_det|box_regressor")
 print("var_freeze_expr: ", model.var_freeze_expr)
 
 model.compile(

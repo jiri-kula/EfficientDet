@@ -115,12 +115,17 @@ class EfficientDet(tf.keras.Model):
         self.angle_reg = AngleRegressor(
             channels=64,
             num_anchors=num_anchors,
-            depth=heads_depth,
+            depth=1,
             kernel_size=3,
             depth_multiplier=box_depth_multiplier,
         )
 
         self.export_tflite = export_tflite
+
+        if self.var_freeze_expr is not None:
+            self.trainable_vars_freezed = self._freeze_vars(self.var_freeze_expr)
+        else:
+            self.trainable_vars_freezed = self.trainable_variables
 
     @property
     def metrics(self):
@@ -271,17 +276,10 @@ class EfficientDet(tf.keras.Model):
 
             # have_angles = tf.reduce_all(tf.equal(positive_mask, angle_positive_mask))
         # Compute gradients
-        if self.var_freeze_expr is not None:
-            trainable_vars = self._freeze_vars(self.var_freeze_expr)
-            # if have_angles:
-            #     trainable_vars = self._freeze_vars(tf.strings.join([self.var_freeze_expr, '|angle_regressor']))
-            # else:
-            #     trainable_vars = self._freeze_vars(self.var_freeze_expr)
-        else:
-            trainable_vars = self.trainable_variables
-        gradients = tape.gradient(loss, trainable_vars)
+
+        gradients = tape.gradient(loss, self.trainable_vars_freezed)
         # Update weights
-        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        self.optimizer.apply_gradients(zip(gradients, self.trainable_vars_freezed))
         # Update metrics (includes the metric that tracks the loss)
         for metric in self.metrics:
             if metric.name == "loss":

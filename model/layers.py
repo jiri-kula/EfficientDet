@@ -400,7 +400,7 @@ class AngleRegressor(tf.keras.layers.Layer):
         super().__init__(name=name)
         self.channels = channels
         self.num_anchors = num_anchors
-        self.depth = depth
+        self.depth = 1
         self.kernel_size = kernel_size
         self.depth_multiplier = depth_multiplier
 

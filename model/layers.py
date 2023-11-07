@@ -397,21 +397,6 @@ class AngleRegressor(tf.keras.layers.Layer):
         depth_multiplier=1,
         name="angle_regressor",
     ):
-        """Initialize regression model.
-
-        Args:
-            channels: an integer representing number of filters
-                inside each separable convolution layer.
-            num_anchors: an integer representing number of anchor
-                boxes.
-            depth: an integer representing number of separable
-                convolutions before final convolution.
-            kernel_size: an integer or tuple/list of 2 integers, specifying
-                the height and width of the 2D convolution window.
-            depth_multiplier: an integer representing depth multiplier for
-                separable convolution layers.
-            name: a string representing layer name.
-        """
         super().__init__(name=name)
         self.channels = channels
         self.num_anchors = num_anchors
@@ -420,38 +405,24 @@ class AngleRegressor(tf.keras.layers.Layer):
         self.depth_multiplier = depth_multiplier
 
         self.convs = [
-            tf.keras.layers.SeparableConv2D(
+            tf.keras.layers.Conv2D(
                 channels,
                 kernel_size,
                 padding="same",
-                depth_multiplier=depth_multiplier,
-                pointwise_initializer=tf.keras.initializers.GlorotUniform(),
-                depthwise_initializer=tf.keras.initializers.GlorotUniform(),
-                bias_initializer=tf.keras.initializers.GlorotUniform(),
-                name=f"angle_reg_separable_conv_{i}",
+                name=f"angle_reg_conv_{i}",
                 activation=None
-                # activation=tf.keras.layers.Activation(tf.nn.tanh),
             )
             for i in range(depth)
         ]
 
-        # self.bns = [
-        #     tf.keras.layers.BatchNormalization(name=f"bn_{i}", momentum=MOMENTUM)
-        #     for i in range(depth)
-        # ]
-        self.act = tf.keras.layers.Activation(tf.nn.tanh)
+        # self.act = tf.keras.layers.Activation(tf.nn.tanh)
 
-        self.angles = tf.keras.layers.SeparableConv2D(
-            6 * num_anchors,  # r13, r23
+        self.angles = tf.keras.layers.Conv2D(
+            6 * num_anchors,
             kernel_size,
             padding="same",
-            depth_multiplier=depth_multiplier,
-            # activation=None,
-            activation=tf.keras.layers.Activation(tf.nn.tanh),
-            pointwise_initializer=tf.keras.initializers.GlorotUniform(),
-            depthwise_initializer=tf.keras.initializers.GlorotUniform(),
-            bias_initializer=tf.keras.initializers.GlorotNormal(),
-            name="angle_preds",
+            activation=tf.keras.layers.Activation(tf.nn.silu),
+            name="angle_preds"
         )
 
     def dot(self, a, b):
@@ -461,7 +432,7 @@ class AngleRegressor(tf.keras.layers.Layer):
         for i in range(self.depth):
             inputs = self.convs[i](inputs)
             # inputs = self.bns[i](inputs, training=training)
-            inputs = self.act(inputs)
+            # inputs = self.act(inputs)
         x = self.angles(inputs)  # batch x 40 x 40 x 64
 
         batch_size = tf.shape(inputs)[0]
@@ -469,6 +440,8 @@ class AngleRegressor(tf.keras.layers.Layer):
             x,
             [batch_size, -1, 6],  # batch_size x anchors_in_layer x 6
         )
+
+        x = tf.subtract(x, 1.0)
 
         # v1 = x[:, :, :3]  # raw first column of rotation matrix
         # v2 = x[:, :, 3:]  # raw second culumn of rotation matrix

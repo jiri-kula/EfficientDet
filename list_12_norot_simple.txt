@@ -1,4 +1,4 @@
-/home/jiri/winpart/Edwards/tfrecords/_home_jiri_winpart_Edwards_annotation_RV12_robotic-4_nedrazka_rv12.tfrecord
+/home/jiri/winpart/Edwards/tfrecords/_home_jiri_winpart_Edwards_annotation_RV12_robotic-3_drazka_rv12.tfrecord
+/home/jiri/winpart/Edwards/tfrecords/_home_jiri_winpart_Edwards_annotation_RV12_robotic-3_nedrazka_rv12.tfrecord
 /home/jiri/winpart/Edwards/tfrecords/_home_jiri_winpart_Edwards_annotation_RV12_robotic-4_drazka_rv12.tfrecord
-/home/jiri/winpart/Edwards/tfrecords/_home_jiri_DigitalAssistant_python_dataset6_images.tfrecord
-/home/jiri/winpart/Edwards/tfrecords/_home_jiri_DigitalAssistant_python_dataset4_images.tfrecord
+/home/jiri/winpart/Edwards/tfrecords/_home_jiri_winpart_Edwards_annotation_RV12_robotic-4_nedrazka_rv12.tfrecord

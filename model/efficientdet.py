@@ -122,11 +122,6 @@ class EfficientDet(tf.keras.Model):
 
         self.export_tflite = export_tflite
 
-        if self.var_freeze_expr is not None:
-            self.trainable_vars_freezed = self._freeze_vars(self.var_freeze_expr)
-        else:
-            self.trainable_vars_freezed = self.trainable_variables
-
     @property
     def metrics(self):
         # We list our `Metric` objects here so that `reset_states()` can be
@@ -211,7 +206,7 @@ class EfficientDet(tf.keras.Model):
         ]
 
     # @tf.autograph.experimental.do_not_convert
-    @tf.function
+    # @tf.function
     def train_step(self, data):
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.
@@ -276,10 +271,15 @@ class EfficientDet(tf.keras.Model):
 
             # have_angles = tf.reduce_all(tf.equal(positive_mask, angle_positive_mask))
         # Compute gradients
+        if self.var_freeze_expr is not None:
+            trainable_vars = self._freeze_vars(self.var_freeze_expr)
+        else:
+            trainable_vars = self.trainable_variables
+        gradients = tape.gradient(loss, trainable_vars)
 
-        gradients = tape.gradient(loss, self.trainable_vars_freezed)
         # Update weights
-        self.optimizer.apply_gradients(zip(gradients, self.trainable_vars_freezed))
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        
         # Update metrics (includes the metric that tracks the loss)
         for metric in self.metrics:
             if metric.name == "loss":

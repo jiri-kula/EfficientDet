@@ -136,6 +136,9 @@ class EfficientDet(tf.keras.Model):
             self.class_tracker,
         ]
 
+    def dot(self, a, b):
+        return tf.reduce_sum(a * b, axis=-1, keepdims=True)
+
     def call(self, inputs, training=False):
         batch_size = tf.shape(inputs)[0]
 
@@ -191,6 +194,16 @@ class EfficientDet(tf.keras.Model):
             classes = tf.keras.activations.sigmoid(
                 classes
             )  # uncomment this line before conversin to tflite, but comment out before training
+
+            # Gram Schmidt for rotation
+            v1 = angles[:, :, :3]  # raw first column of rotation matrix
+            v2 = angles[:, :, 3:]  # raw second culumn of rotation matrix
+
+            r1 = tf.nn.l2_normalize(v1, axis=-1)
+            r2 = tf.nn.l2_normalize(v2 - self.dot(r1, v2) * r1, axis=-1)
+
+            angles = tf.concat([r1, r2], axis=-1)
+
 
             # zero out boxes to check quantization of our model without boxes
             # boxes = tf.where(tf.equal(boxes, 1.0), 0.0, 0.0)

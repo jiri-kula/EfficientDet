@@ -417,13 +417,14 @@ class AngleRegressor(tf.keras.layers.Layer):
 
         # self.act = tf.keras.layers.Activation(tf.nn.tanh)
 
-        self.angles = tf.keras.layers.Conv2D(
-            6 * num_anchors,
-            kernel_size,
-            padding="same",
-            activation=tf.keras.layers.Activation(tf.nn.silu),
-            name="angle_preds"
-        )
+        # self.angles = tf.keras.layers.Conv2D(
+        #     6 * num_anchors,
+        #     kernel_size,
+        #     padding="same",
+        #     activation=tf.keras.layers.Activation(tf.nn.silu),
+        #     name="angle_preds"
+        # )
+        self.angles = tf.keras.layers.Dense(6 * num_anchors)
 
     def dot(self, a, b):
         return tf.reduce_sum(a * b, axis=-1, keepdims=True)

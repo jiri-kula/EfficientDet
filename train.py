@@ -4,7 +4,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import tensorflow as tf
 
-TFLITE_CONVERSION = False
+TFLITE_CONVERSION = True
 
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
@@ -26,25 +26,27 @@ import dataset_api
 from tfrecord_decode import decode_fn
 
 EPOCHS = 200
-BATCH_SIZE = 4 if EAGERLY else 16
-checkpoint_dir = "checkpoints/kernel_17"
+BATCH_SIZE = 4 if EAGERLY else 24
+checkpoint_dir = "checkpoints/kernel_18"
 
-# laod list of tfrecord files
-with open("list_12_norot_simple.txt") as file:
-    train_list  = [line.rstrip() for line in file]
-random.shuffle(train_list)
+def ds_from_list(list_file):
+    # laod list of tfrecord files
+    with open(list_file) as file:
+        train_list  = [line.rstrip() for line in file]
+    random.shuffle(train_list)
 
-# print shuffeled tfrecord files
-for item in train_list:
-    if not os.path.isfile(item):
-        raise ValueError(item)
+    # print shuffeled tfrecord files
+    for item in train_list:
+        if not os.path.isfile(item):
+            raise ValueError(item)
 
-train_data = tf.data.TFRecordDataset(
-    # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
-    train_list
-).map(decode_fn)
+    return tf.data.TFRecordDataset(
+        # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
+        train_list
+    ).map(decode_fn)
 
 # num_samples = train_data.cardinality().numpy()
+train_data = ds_from_list("list_12_norot_simple.txt")
 train_data = train_data.shuffle(4096)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
@@ -143,7 +145,8 @@ model.compute_output_shape((1, 320, 320, 3))
 
 
 def representative_dataset():
-    data = train_data.take(10)
+    data = ds_from_list("list_12_representative.txt").shuffle(1000).batch(BATCH_SIZE).take(10)
+
     for image, label in data:
         yield [image]
 

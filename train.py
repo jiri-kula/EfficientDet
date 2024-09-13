@@ -26,8 +26,8 @@ import dataset_api
 from tfrecord_decode import decode_fn
 
 EPOCHS = 200
-BATCH_SIZE = 4 if EAGERLY else 64
-checkpoint_dir = "checkpoints/ZMRS_norot_bc"
+BATCH_SIZE = 4 if EAGERLY else 128
+checkpoint_dir = "checkpoints/synth-merge-e-freeze_efficientnet-lite0-resample_p6"
 
 # laod list of tfrecord files
 with open("list_12_norot.txt") as file:
@@ -38,6 +38,10 @@ random.shuffle(train_list)
 for item in train_list:
     if not os.path.isfile(item):
         raise ValueError(item)
+    
+# train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
+# train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
+train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv")
 
 train_data = tf.data.TFRecordDataset(
     # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"

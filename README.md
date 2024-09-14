@@ -1,5 +1,4 @@
 # Python
-Use v3.8
 wget https://www.python.org/ftp/python/3.9.11/Python-3.9.11.tar.xz
 xz -d Python-3.9.11.tar.xz
 tar -xvf Python-3.9.11.tar
@@ -10,7 +9,7 @@ sudo apt install        \
       libsqlite3-dev    \
       libssl-dev        \
       -y
-./configure
+./configure --enable-optimizations
 make -j12
 sudo make altinstall
 
@@ -63,7 +62,7 @@ Compilation child process completed within timeout period.
 Compilation failed! 
 ```
 
-2) Do post processing in custom c++ code as we did that for palm and landmark detection. Anchors need to be generated in c++ and kept in sync with python training code manually.
+2) Do post processing in custom c++ code as we did that for palm and landmark detection. Anchors need to be generated in c++ and kept in sync with python training code manually; or save them to anchors.txt
 
 # Reference
 [Better rotation representations for accurate pose estimation](https://towardsdatascience.com/better-rotation-representations-for-accurate-pose-estimation-e890a7e1317f)

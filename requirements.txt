@@ -1,11 +1,13 @@
+tensorflow[and-cuda]==2.14.0
 opencv-python
 imgaug
 nvidia-cudnn-cu12
 protobuf==3.20.*
-tensorflow[and-cuda]==2.14.0
 # tensorflow-estimator==2.8.0
 tensorflow_hub
 # tensorboard-plugin-profile==2.8.0
 pandas
 progress
 scikit-learn
+numpy<2
+open3d

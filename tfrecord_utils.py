@@ -41,6 +41,8 @@ image_labels = {
     'nedrazka_rv8' : 1,
     'drazka_rv12' : 2,
     'nedrazka_rv12' : 2,
+    'roh' : 0,
+    'vyrez' : 1,
 }
 
 path_map = {
@@ -77,10 +79,11 @@ def image_example(rows):
   r32s = []
 
   for i in range(len(rows)):
+    object = rows.iloc[i]["OBJECT"]
     try:
-      classes.append(image_labels[rows.iloc[i]["OBJECT"]])
+      classes.append(image_labels[object])
     except:
-      print(rows.iloc[i]["OBJECT"], rows["PATH"].values)
+      print(object, rows["PATH"].values)
 
     xmin = rows.iloc[i]["X1"]
     ymin = rows.iloc[i]["Y1"]
@@ -108,6 +111,7 @@ def image_example(rows):
     xmaxes.append(xmax)
     ymaxes.append(ymax)
 
+    # check if rotation matrix is present in csv file
     if not np.isnan(rows.iloc[i]["R11"]):
       r11s.append(rows.iloc[i]["R11"])
       r21s.append(rows.iloc[i]["R21"])
@@ -116,6 +120,8 @@ def image_example(rows):
       r22s.append(rows.iloc[i]["R22"])
       r32s.append(rows.iloc[i]["R32"])
     else:
+      # if not, and object contains 'nedrazka', then set rotation matrix to identity
+      # so that the 'x' axis is pointing to the right, 'z' axis is pointing up
       if rows.iloc[i]["OBJECT"].find("ne") > -1:
         r11s.append(0.0)
         r21s.append(0.0)
@@ -124,6 +130,8 @@ def image_example(rows):
         r22s.append(-1.0)
         r32s.append(0.0)
       else:
+        # if not, and object contains 'drazka', then set rotation matrix to identity
+        # so that the 'x' axis is pointing to the left, 'z' axis is pointing up
         r11s.append(0.0)
         r21s.append(0.0)
         r31s.append(-1.0)
@@ -176,7 +184,7 @@ def process(meta_train):
   # meta_train = "/home/jiri/remote_seagate/LEGION5_DISK_D/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
   # meta_train = "/home/jiri/remote_sd/DetectionData/Dataset/zaznamy_z_vyroby/2023_10_27-merge-all.csv"
   # meta_train = "/home/jiri/DigitalAssistant/python/dataset6/images/meta.csv"
-  tfrecord_path = '/home/jiri/winpart/Edwards/tfrecords_allrot/' + os.path.split(meta_train)[0].replace("/", "_") + '.tfrecord'
+  tfrecord_path = '/home/jiri/tfrecords_allrot/' + os.path.split(meta_train)[0].replace("/", "_") + '.tfrecord'
 
   print("Processing: ", meta_train)
   print("Output: ", tfrecord_path)

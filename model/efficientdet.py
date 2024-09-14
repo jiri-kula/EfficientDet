@@ -113,7 +113,7 @@ class EfficientDet(tf.keras.Model):
         )
 
         self.angle_reg = AngleRegressor(
-            channels=2*64,
+            channels=2 * 64,
             num_anchors=num_anchors,
             depth=heads_depth,
             kernel_size=box_kernel_size,
@@ -199,9 +199,7 @@ class EfficientDet(tf.keras.Model):
 
     def _freeze_vars(self, var_freeze_expr):
         return [
-            v
-            for v in self.trainable_variables
-            if not re.match(var_freeze_expr, v.name)
+            v for v in self.trainable_variables if not re.match(var_freeze_expr, v.name)
         ]
 
     # @tf.autograph.experimental.do_not_convert
@@ -228,7 +226,9 @@ class EfficientDet(tf.keras.Model):
             ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
 
             angle_positive_mask = tf.greater(tf.reduce_sum(tf.abs(angle_labels)), 0.0)
-            angle_positive_mask = tf.math.logical_and(positive_mask, angle_positive_mask)
+            angle_positive_mask = tf.math.logical_and(
+                positive_mask, angle_positive_mask
+            )
 
             positive_mask = tf.cast(positive_mask, dtype=tf.float32)
             angle_positive_mask = tf.cast(angle_positive_mask, dtype=tf.float32)
@@ -237,7 +237,7 @@ class EfficientDet(tf.keras.Model):
             clf_loss = self.class_loss(cls_labels, cls_preds)
             box_loss = self.box_loss(box_labels, box_preds)
             # ang_loss = self.angle_loss(angle_labels, angle_preds)
-            ang_loss = tf.losses.MAE(angle_labels, angle_preds)
+            ang_loss = tf.losses.MAE(angle_preds, angle_preds)
 
             # zero out irrelevant anchors
             clf_loss = tf.where(tf.equal(ignore_mask, 1.0), 0.0, clf_loss)
@@ -246,7 +246,7 @@ class EfficientDet(tf.keras.Model):
             ang_loss = tf.where(tf.equal(angle_positive_mask, 1.0), ang_loss, 0.0)
             # ang_loss = tf.where(# zero out angle loss where label does not carry it (all zeros)
             #     tf.equal(angle_ignore_mask, 1.0), 0.0, ang_loss
-            # )  
+            # )
 
             # average loss across samples so that there remains a scalar loss for each batch
             normalizer = tf.reduce_sum(positive_mask, axis=-1)
@@ -263,7 +263,16 @@ class EfficientDet(tf.keras.Model):
             )
 
             # average loss across batches so that remains a scalar loss for each (box, angle, class)
-            losses = tf.reduce_mean(tf.stack([box_loss, ang_loss, clf_loss]), axis=-1)
+            losses = tf.reduce_mean(
+                tf.stack(
+                    [
+                        box_loss,
+                        ang_loss,
+                        clf_loss,
+                    ]
+                ),
+                axis=-1,
+            )
 
             # let total loss be a sum of particular losses = box + angle + class
             loss = tf.reduce_sum(losses)

@@ -10,7 +10,7 @@ class Anchors:
 
     def __init__(
         self,
-        aspect_ratios=[0.76868516, 1.43454847, 2.10041177],
+        aspect_ratios=[0.98034654, 1.13058096, 1.28081538],
         scales=[0, 1 / 3, 2 / 3],
     ):
         """Initialize anchors generator.
@@ -27,7 +27,7 @@ class Anchors:
 
         self._strides = [2**i for i in range(3, 8)]
         self._areas = [
-            i**2 for i in [27., 35., 41., 47., 52.]
+            i**2 for i in [7.0, 10.0, 11.0, 12.0, 13.0]
         ]  # TODO: RV12 shape analysis
         self._anchor_dims = self._compute_dims()
 
@@ -50,7 +50,7 @@ class Anchors:
             all_dims.append(tf.stack(level_dims, axis=0))
         return tf.stack(all_dims, axis=0)
 
-    @tf.function
+    # @tf.function
     def _get_anchors(self, feature_height, feature_width, level):
         """Get anchors for with given height and width on given level.
 
@@ -83,7 +83,7 @@ class Anchors:
         )
         return tf.concat([centers, dims], axis=-1)
 
-    @tf.function
+    # @tf.function
     def get_anchors(self, image_height, image_width):
         """Get anchors for given height and width on all levels.
 
@@ -105,7 +105,9 @@ class Anchors:
 class SamplesEncoder:
     """Enchoder of training batches."""
 
-    def __init__(self, aspect_ratios=[0.5, 1, 2], scales=[0, 1 / 3, 2 / 3]):
+    def __init__(
+        self,
+    ):
         self._anchors = Anchors()
         self._box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
         self.anchor_boxes = None

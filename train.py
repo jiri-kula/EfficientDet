@@ -1,10 +1,11 @@
 # %%
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import tensorflow as tf
 
-TFLITE_CONVERSION = False
+TFLITE_CONVERSION = True
 
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
@@ -23,40 +24,47 @@ import random
 from model.utils import to_corners
 
 import dataset_api
+from dataset_api import create_dataset
 from tfrecord_decode import decode_fn
 
 EPOCHS = 200
-BATCH_SIZE = 4 if EAGERLY else 128
-checkpoint_dir = "checkpoints/synth-merge-e-freeze_efficientnet-lite0-resample_p6"
+BATCH_SIZE = 4 if EAGERLY else 32
+checkpoint_dir = "checkpoints/kk_a"
 
-# laod list of tfrecord files
-with open("list_12_norot.txt") as file:
-    train_list  = [line.rstrip() for line in file]
-random.shuffle(train_list)
+# # laod list of tfrecord files
+# with open("list_12_norot.txt") as file:
+#     train_list  = [line.rstrip() for line in file]
+# random.shuffle(train_list)
 
-# print shuffeled tfrecord files
-for item in train_list:
-    if not os.path.isfile(item):
-        raise ValueError(item)
-    
+# # print shuffeled tfrecord files
+# for item in train_list:
+#     if not os.path.isfile(item):
+#         raise ValueError(item)
+
 # train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
 # train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
-train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv")
+# train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv")
 
 train_data = tf.data.TFRecordDataset(
     # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
-    train_list
+    "/home/jiri/tfrecords_allrot/_home_jiri_kk_csv.tfrecord"
+    # "/mnt/c/Edwards/zaznamy_z_vyroby.tfrecord"
 ).map(decode_fn)
+# train_data = create_dataset("/home/jiri/kk_csv/annotation.csv")
 
 # num_samples = train_data.cardinality().numpy()
-train_data = train_data.shuffle(4096)
+# train_data = train_data.shuffle(4096)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
 
-gen_data = dataset_api.create_generator()
+# it = train_data.take(1).as_numpy_iterator()
+# item = next(it)
+
+
+# gen_data = dataset_api.create_generator()
 
 # %%
-NUM_CLASSES = 3
+NUM_CLASSES = 2
 
 model = EfficientDet(
     channels=64,
@@ -73,14 +81,19 @@ model.var_freeze_expr = (
 )
 print("var_freeze_expr: ", model.var_freeze_expr)
 
+print("model compilation", end=" ")
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
     loss=None,
     run_eagerly=EAGERLY,
 )
+print(" done")
 
 # %%
+print("model build", end=" ")
 model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
+print(" done")
+
 model.summary(show_trainable=True)
 
 # checkpoints
@@ -111,6 +124,8 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 log_dir = "logs/fit/" + datetime.datetime.now().strftime(
     "%Y%m%d-%H%M%S" + "/" + checkpoint_dir
 )
+
+print("log_dir: ", log_dir)
 
 # constant log_dir
 # log_dir = "logs/fit/" + checkpoint_dir
@@ -209,11 +224,11 @@ interpreter.allocate_tensors()  # Needed before execution!
 # im8e = tf.expand_dims(im8, axis=0)
 # interpreter.set_tensor(input["index"], im8e)
 
-exit()
+# exit()
 
 # %%
 # input loaded from image path
-image_path = "/home/jiri/winpart/Edwards/annotation/RV12/robotic-3-aug//drazka_rv12/image_drazka_rv12_0011.png"
+image_path = "/home/jiri/kk_csv/image_000001.png"
 raw_image = tf.io.read_file(image_path)
 image = tf.image.decode_image(raw_image, channels=3, dtype=tf.uint8)
 image = tf.expand_dims(image, axis=0)
@@ -241,3 +256,5 @@ model.predict(images[0])
 
 se = SamplesEncoder()
 se._anchors._compute_dims()
+
+# %%

@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.cluster import KMeans
-from tfrecord_files import train_list
+# from tfrecord_files import train_list
 from tfrecord_decode import decode_raw, raw2label
 
 # laod list of tfrecord files

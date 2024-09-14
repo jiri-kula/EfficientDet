@@ -12,7 +12,7 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "args": [
-        "/home/jiri/remote_sd/DetectionData/Dataset/zaznamy_z_vyroby/2023_03_08/rv12/09_47_27/meta.csv"
+        "${env:HOME}/kk_csv/annotation.csv"
       ]
     },
     {

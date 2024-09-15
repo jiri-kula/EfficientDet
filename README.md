@@ -135,7 +135,37 @@ sudo mount -t ntfs -o ro /dev/nvme1n1p3 ~/winpart
 sudo mount -t ntfs /dev/nvme1n1p3 ~/winpart
 ```
 
-Known issues
+## EfficientDet properties
+EfficientDet is a family of object detection models that are designed to be both scalable and efficient. 
+
+Here's a breakdown of the key components you mentioned and how they work together:
+
+### Aspect Ratios
+Aspect ratios define the shape of the anchors (bounding boxes) used for detecting objects. EfficientDet typically uses aspect ratios like 1:1, 1:2, and 2:1. These ratios help the model detect objects of different shapes and sizes.
+
+### Scales
+Scales determine the size of the anchors. EfficientDet uses scales like (2^0), (2^{1/3}), and (2^{2/3}). These scales allow the model to detect objects at various sizes within the same aspect ratio.
+
+### Levels
+Levels refer to the different layers in the feature pyramid network (FPN) used in EfficientDet. Each level corresponds to a different resolution of the input image, allowing the model to detect objects at multiple scales. For example, lower levels might detect larger objects, while higher levels detect smaller objects.
+
+### Strides 
+Strides are the steps taken in the feature map to generate anchors. For instance, a stride of 8 means that the anchors are generated every 8 pixels in the feature map. EfficientDet uses strides like 8, 16, 32, 64, and 128, corresponding to different levels in the FPN.
+
+### Number of Anchors
+The number of anchors is determined by the combination of aspect ratios and scales. For example, if you have 3 aspect ratios and 3 scales, you will have (3 \times 3 = 9) anchors per location in the feature map.
+
+### How They Work Together - Anchor Generation: 
+Anchors are generated at each level of the FPN using the specified aspect ratios and scales. This results in a set of anchors that can detect objects of various shapes and sizes.
+- Feature Extraction: The FPN extracts features from the input image at different resolutions, corresponding to different levels.
+- Anchor Matching: During training, each anchor is matched with the ground truth bounding boxes. The model learns to adjust the anchors to better fit the objects.
+- Prediction: During inference, the model predicts the class and bounding box adjustments for each anchor. The anchors are then adjusted to form the final bounding boxes.
+EfficientDet's design, including the use of aspect ratios, scales, levels, strides, and the number of anchors, allows it to efficiently and accurately detect objects at multiple scales and resolutions.
+If you have any more questions or need further clarification, feel free to ask!
+: EfficientDet: Scalable and Efficient Object Detection
+: EfficientDet/utils/anchors.py at master - GitHub
+
+## Known issues
 - Access is denied because the NTFS volume is already exclusively opened
 use `lsblk` to check if the partition is already mounted, if so use
 

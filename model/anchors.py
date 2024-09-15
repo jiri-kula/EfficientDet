@@ -10,8 +10,8 @@ class Anchors:
 
     def __init__(
         self,
-        aspect_ratios=[0.98034654, 1.13058096, 1.28081538],
-        scales=[0, 1 / 3, 2 / 3],
+        aspect_ratios=[1.0],
+        scales=[0],
     ):
         """Initialize anchors generator.
 

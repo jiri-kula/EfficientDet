@@ -5,7 +5,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import tensorflow as tf
 
-TFLITE_CONVERSION = True
+TFLITE_CONVERSION = False
 
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
@@ -28,8 +28,8 @@ from dataset_api import create_dataset
 from tfrecord_decode import decode_fn
 
 EPOCHS = 200
-BATCH_SIZE = 4 if EAGERLY else 32
-checkpoint_dir = "checkpoints/kk_a"
+BATCH_SIZE = 4 if EAGERLY else 16
+checkpoint_dir = "checkpoints/kk_multiplier_3c"
 
 # # laod list of tfrecord files
 # with open("list_12_norot.txt") as file:
@@ -45,6 +45,7 @@ checkpoint_dir = "checkpoints/kk_a"
 # train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
 # train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv")
 
+print("Loading dataset", end=" ")
 train_data = tf.data.TFRecordDataset(
     # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
     "/home/jiri/tfrecords_allrot/_home_jiri_kk_csv.tfrecord"
@@ -56,7 +57,7 @@ train_data = tf.data.TFRecordDataset(
 # train_data = train_data.shuffle(4096)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
-
+print("done")
 # it = train_data.take(1).as_numpy_iterator()
 # item = next(it)
 
@@ -69,7 +70,7 @@ NUM_CLASSES = 2
 model = EfficientDet(
     channels=64,
     num_classes=NUM_CLASSES,
-    num_anchors=9,
+    num_anchors=1,
     bifpn_depth=3,
     heads_depth=3,
     name="efficientdet_d0",

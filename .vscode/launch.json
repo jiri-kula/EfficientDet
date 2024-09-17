@@ -12,8 +12,16 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "args": [
-        "${env:HOME}/kk_csv/annotation.csv"
+        "${env:HOME}/output_512/annotation.csv"
       ]
+    },
+    {
+      "name": "Python: Current File As Module",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
     },
     {
       "name": "train",

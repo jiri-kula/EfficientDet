@@ -1,6 +1,7 @@
 # %%
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import tensorflow as tf
 
@@ -8,15 +9,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.cluster import KMeans
+
 # from tfrecord_files import train_list
 from tfrecord_decode import decode_raw, raw2label
 
 # laod list of tfrecord files
 with open("list.txt") as file:
-    train_list  = [line.rstrip() for line in file]
+    train_list = [line.rstrip() for line in file]
 
 ds = tf.data.TFRecordDataset(train_list).map(decode_raw)
 
+# %%
 ws = []
 hs = []
 
@@ -30,6 +33,17 @@ w = np.array(ws)
 h = np.array(hs)
 
 a = w / h
+
+
+def stats(x):
+    print("min: {:f}\nmax: {:f}".format(min(x), max(x)))
+
+
+stats(w)
+stats(a)
+
+# here w and h are widths and heights of bounding boxes found in the dataset, need to compute aspect rations, scales and areas to setup anchors.py
+
 
 # %% K-means
 kmeans = KMeans(init="random", n_clusters=5, n_init=10, max_iter=300, random_state=42)
@@ -77,7 +91,7 @@ def split(areas, N):
     area_min = min(areas)
     area_max = max(areas)
     h = (area_max - area_min) / N
-    area_center = np.linspace(area_min + h/2, area_max - h/2, N)
+    area_center = np.linspace(area_min + h / 2, area_max - h / 2, N)
 
     return area_center
 

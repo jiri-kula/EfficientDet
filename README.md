@@ -8,6 +8,7 @@ sudo apt install        \
       libgl1            \
       libsqlite3-dev    \
       libssl-dev        \
+      libbz2-dev        \
       -y
 ./configure --enable-optimizations
 make -j12

@@ -69,8 +69,9 @@ def decode_raw(record_bytes):
 
 def raw2label(item):
     # image
-    image = tf.io.decode_png(item["image_raw"])
-    image = tf.image.resize(image, [320, 320])
+    # image = tf.io.decode_png(item["image"])
+    # image = tf.image.resize(image, [320, 320])
+    image = item["image"]
 
     # classes
     gt_classes = tf.sparse.to_dense(item["classes"], default_value=-1.0)
@@ -98,6 +99,9 @@ def raw2label(item):
     return image, gt_boxes, gt_classes, gt_angles
 
 
+se = SamplesEncoder()
+
+
 # @tf.function
 @tf.autograph.experimental.do_not_convert
 def decode_fn(record_bytes):
@@ -105,7 +109,6 @@ def decode_fn(record_bytes):
 
     image, gt_boxes, gt_classes, gt_angles = raw2label(item)
 
-    se = SamplesEncoder()
     label = se._encode_sample(image.shape, gt_boxes, gt_classes, gt_angles)
 
     return image, label

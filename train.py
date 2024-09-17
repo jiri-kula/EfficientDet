@@ -1,4 +1,17 @@
 # %%
+
+# Train checklist
+# [] Create tfrecord out of csv file
+# [] Set model/anchors.py areas so that first smallest leve is mean of histogram values given by anchor_histogram_tfrecord.py
+# [] Set checkpoint_dir
+# [] Set var_freeze_expr
+
+# SDG
+# lr = (0.0001-0.0005), momentum=0.9
+
+# Notes
+# Training accuracy higly dependend on proper initialization of anchors
+
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -25,11 +38,15 @@ from model.utils import to_corners
 
 import dataset_api
 from dataset_api import create_dataset
-from tfrecord_decode import decode_fn
+
+# from tfrecord_decode import decode_fn
+
+import tensorflow_datasets as tfds
+
 
 EPOCHS = 200
 BATCH_SIZE = 4 if EAGERLY else 16
-checkpoint_dir = "checkpoints/kk_multiplier_3c"
+checkpoint_dir = "checkpoints/kk_dataset_var_none_00001"
 
 # # laod list of tfrecord files
 # with open("list_12_norot.txt") as file:
@@ -46,20 +63,48 @@ checkpoint_dir = "checkpoints/kk_multiplier_3c"
 # train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv")
 
 print("Loading dataset", end=" ")
-train_data = tf.data.TFRecordDataset(
-    # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
-    "/home/jiri/tfrecords_allrot/_home_jiri_kk_csv.tfrecord"
-    # "/mnt/c/Edwards/zaznamy_z_vyroby.tfrecord"
-).map(decode_fn)
-# train_data = create_dataset("/home/jiri/kk_csv/annotation.csv")
+# train_data = tf.data.TFRecordDataset(
+#     # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
+#     # "/mnt/c/Edwards/zaznamy_z_vyroby.tfrecord"
+#     "/home/jiri/tfrecords_allrot/_home_jiri_output_adaptive.tfrecord"
+#     # "/home/jiri/tfrecords_allrot/_home_jiri_kk_csv.tfrecord"
+# ).map(decode_fn)
 
-# num_samples = train_data.cardinality().numpy()
 # train_data = train_data.shuffle(4096)
+# train_data = train_data.batch(BATCH_SIZE)
+# train_data = train_data.prefetch(tf.data.AUTOTUNE)
+# print("done")
+
+se = SamplesEncoder()
+
+
+@tf.autograph.experimental.do_not_convert
+def decode_fn(sample):
+    image = tf.cast(sample["image"], tf.float32)
+    gt_classes = tf.cast(sample["objects"]["label"], tf.float32)
+
+    gt_boxes = sample["objects"]["bbox"]
+    gt_boxes = tf.multiply(gt_boxes, 320.0)
+    y1, x1, y2, x2 = tf.split(gt_boxes, 4, axis=-1)
+    gt_boxes = tf.concat([(x1 + x2) / 2.0, (y1 + y2) / 2.0, x2 - x1, y2 - y1], axis=-1)
+
+    # Dynamically determine the batch size
+    batch_size = tf.shape(gt_boxes)[0]
+    gt_angles = tf.zeros(shape=(batch_size, 6), dtype=tf.float32)
+    # image, gt_boxes, gt_classes, gt_angles = raw2label(item)
+
+    label = se._encode_sample(image.shape, gt_boxes, gt_classes, gt_angles)
+
+    return image, label
+
+
+train_data = tfds.load("kk_dataset", split="train", shuffle_files=True).map(
+    decode_fn, num_parallel_calls=tf.data.AUTOTUNE
+)
+train_data = train_data.cache()
+train_data = train_data.shuffle(1000)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
-print("done")
-# it = train_data.take(1).as_numpy_iterator()
-# item = next(it)
 
 
 # gen_data = dataset_api.create_generator()
@@ -77,14 +122,13 @@ model = EfficientDet(
     export_tflite=TFLITE_CONVERSION,
 )
 
-model.var_freeze_expr = (
-    "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
-)
+model.var_freeze_expr = None  # "efficientnet-lite0|resample_p6|fpn_cells"
 print("var_freeze_expr: ", model.var_freeze_expr)
 
 print("model compilation", end=" ")
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+    # optimizer=tf.keras.optimizers.SGD(learning_rate=0.001, momentum=0.9),
     loss=None,
     run_eagerly=EAGERLY,
 )
@@ -157,6 +201,10 @@ if not TFLITE_CONVERSION:
     )
 
 # %%
+if not TFLITE_CONVERSION:
+    print("Training done.")
+    exit()
+
 print("Conversion")
 model.compute_output_shape((1, 320, 320, 3))
 

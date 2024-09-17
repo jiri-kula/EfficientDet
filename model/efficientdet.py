@@ -112,13 +112,13 @@ class EfficientDet(tf.keras.Model):
             depth_multiplier=box_depth_multiplier,
         )
 
-        self.angle_reg = AngleRegressor(
-            channels=2 * 64,
-            num_anchors=num_anchors,
-            depth=heads_depth,
-            kernel_size=box_kernel_size,
-            depth_multiplier=box_depth_multiplier,
-        )
+        # self.angle_reg = AngleRegressor(
+        #     channels=2 * 64,
+        #     num_anchors=num_anchors,
+        #     depth=heads_depth,
+        #     kernel_size=box_kernel_size,
+        #     depth_multiplier=box_depth_multiplier,
+        # )
 
         self.export_tflite = export_tflite
 
@@ -147,7 +147,7 @@ class EfficientDet(tf.keras.Model):
 
         classes = list()
         boxes = list()
-        angles = list()
+        # angles = list()
 
         c, b = self.backbone(inputs)
 
@@ -173,17 +173,17 @@ class EfficientDet(tf.keras.Model):
             boxes.append(tmp)
 
             # angles
-            tmp1 = self.angle_reg(tf.concat([b[i], c[i]], axis=-1), training=training)
+            # tmp1 = self.angle_reg(tf.concat([b[i], c[i]], axis=-1), training=training)
             # tmp = tf.reshape(
             #     tmp1,
             #     [batch_size, -1, 6],  # rotation: r13, r23
             # )
-            angles.append(tmp1)
+            # angles.append(tmp1)
 
         classes = tf.concat(classes, axis=1)
 
         boxes = tf.concat(boxes, axis=1)
-        angles = tf.concat(angles, axis=1)
+        # angles = tf.concat(angles, axis=1)
 
         if self.export_tflite:
             # apply sigmoid transform on class predicitons
@@ -195,7 +195,8 @@ class EfficientDet(tf.keras.Model):
             # boxes = tf.where(tf.equal(boxes, 1.0), 0.0, 0.0)
         # retval = tf.concat([boxes, angles, classes], axis=-1)
         # return retval
-        return boxes, angles, classes
+        # return boxes, angles, classes
+        return boxes, classes
 
     def _freeze_vars(self, var_freeze_expr):
         return [
@@ -210,7 +211,8 @@ class EfficientDet(tf.keras.Model):
         x, y_true = data
 
         with tf.GradientTape() as tape:
-            box_preds, angle_preds, cls_preds = self(x, training=True)  # Forward pass
+            # box_preds, angle_preds, cls_preds = self(x, training=True)  # Forward pass
+            box_preds, cls_preds = self(x, training=True)  # Forward pass
 
             # extract the three labels
             box_labels = y_true[..., :4]
@@ -225,25 +227,25 @@ class EfficientDet(tf.keras.Model):
             positive_mask = tf.greater(y_true[..., 10], -1.0)
             ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
 
-            angle_positive_mask = tf.greater(tf.reduce_sum(tf.abs(angle_labels)), 0.0)
-            angle_positive_mask = tf.math.logical_and(
-                positive_mask, angle_positive_mask
-            )
+            # angle_positive_mask = tf.greater(tf.reduce_sum(tf.abs(angle_labels)), 0.0)
+            # angle_positive_mask = tf.math.logical_and(
+            #     positive_mask, angle_positive_mask
+            # )
 
             positive_mask = tf.cast(positive_mask, dtype=tf.float32)
-            angle_positive_mask = tf.cast(angle_positive_mask, dtype=tf.float32)
+            # angle_positive_mask = tf.cast(angle_positive_mask, dtype=tf.float32)
 
             # loss for each anchor
             clf_loss = self.class_loss(cls_labels, cls_preds)
             box_loss = self.box_loss(box_labels, box_preds)
             # ang_loss = self.angle_loss(angle_labels, angle_preds)
-            ang_loss = tf.losses.MAE(angle_preds, angle_preds)
+            # ang_loss = tf.losses.MAE(angle_preds, angle_preds)
 
             # zero out irrelevant anchors
             clf_loss = tf.where(tf.equal(ignore_mask, 1.0), 0.0, clf_loss)
             box_loss = tf.where(tf.equal(positive_mask, 1.0), box_loss, 0.0)
 
-            ang_loss = tf.where(tf.equal(angle_positive_mask, 1.0), ang_loss, 0.0)
+            # ang_loss = tf.where(tf.equal(angle_positive_mask, 1.0), ang_loss, 0.0)
             # ang_loss = tf.where(# zero out angle loss where label does not carry it (all zeros)
             #     tf.equal(angle_ignore_mask, 1.0), 0.0, ang_loss
             # )
@@ -257,17 +259,17 @@ class EfficientDet(tf.keras.Model):
                 tf.reduce_sum(box_loss, axis=-1), normalizer
             )
 
-            normalizer = tf.reduce_sum(angle_positive_mask, axis=-1)
-            ang_loss = tf.math.divide_no_nan(
-                tf.reduce_sum(ang_loss, axis=-1), normalizer
-            )
+            # normalizer = tf.reduce_sum(angle_positive_mask, axis=-1)
+            # ang_loss = tf.math.divide_no_nan(
+            #     tf.reduce_sum(ang_loss, axis=-1), normalizer
+            # )
 
             # average loss across batches so that remains a scalar loss for each (box, angle, class)
             losses = tf.reduce_mean(
                 tf.stack(
                     [
                         box_loss,
-                        ang_loss,
+                        # ang_loss,
                         clf_loss,
                     ]
                 ),
@@ -297,10 +299,10 @@ class EfficientDet(tf.keras.Model):
             else:
                 if metric.name == "box":
                     metric.update_state(losses[0])
-                elif metric.name == "angle":
-                    metric.update_state(losses[1])
+                # elif metric.name == "angle":
+                #     metric.update_state(losses[1])
                 elif metric.name == "class":
-                    metric.update_state(losses[2])
+                    metric.update_state(losses[1])
                 # metric.update_state(y, y_pred)
 
         # Return a dict mapping metric names to current value

@@ -11,7 +11,7 @@ class Anchors:
     def __init__(
         self,
         aspect_ratios=[1.0],
-        scales=[0],
+        scales=[0.0],
     ):
         """Initialize anchors generator.
 
@@ -27,7 +27,7 @@ class Anchors:
 
         self._strides = [2**i for i in range(3, 8)]
         self._areas = [
-            i**2 for i in [7.0, 10.0, 11.0, 12.0, 13.0]
+            i**2 for i in [24.0, 48.0, 96.0, 192.0, 384.0]  # adaptive
         ]  # TODO: RV12 shape analysis
         self._anchor_dims = self._compute_dims()
 
@@ -44,7 +44,7 @@ class Anchors:
             for aspect_ratio in self._aspect_ratios:
                 height = tf.math.sqrt(area * aspect_ratio)
                 width = area / height
-                dims = tf.cast([height, width], tf.float32)
+                dims = tf.cast([width, height], tf.float32)
                 for scale in self._scales:
                     level_dims.append(dims * scale)
             all_dims.append(tf.stack(level_dims, axis=0))
@@ -166,7 +166,7 @@ class SamplesEncoder:
         # tf.print("angles:", angles, output_stream=sys.stderr)
         matched_gt_classes = tf.gather(classes, matched_gt_idx)
         class_target = tf.where(
-            tf.equal(positive_mask, 1.0), tf.squeeze(matched_gt_classes), -1.0
+            tf.equal(positive_mask, 1.0), (matched_gt_classes), -1.0
         )
         class_target = tf.where(tf.equal(ignore_mask, 1.0), -2.0, class_target)
         class_target = tf.expand_dims(class_target, axis=-1)

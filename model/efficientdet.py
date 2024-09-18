@@ -210,6 +210,10 @@ class EfficientDet(tf.keras.Model):
         # on what you pass to `fit()`.
         x, y_true = data
 
+        # Check for NaNs in losses
+        # tf.debugging.check_numerics(x, "x contains NaN or Inf")
+        # tf.debugging.check_numerics(y_true, "y_true contains NaN or Inf")
+
         with tf.GradientTape() as tape:
             # box_preds, angle_preds, cls_preds = self(x, training=True)  # Forward pass
             box_preds, cls_preds = self(x, training=True)  # Forward pass
@@ -251,13 +255,19 @@ class EfficientDet(tf.keras.Model):
             # )
 
             # average loss across samples so that there remains a scalar loss for each batch
-            normalizer = tf.reduce_sum(positive_mask, axis=-1)
-            clf_loss = tf.math.divide_no_nan(
-                tf.reduce_sum(clf_loss, axis=-1), normalizer
-            )
+            # clf_normalizer = tf.add(
+            #     tf.reduce_sum(positive_mask, axis=-1),
+            #     tf.reduce_sum(negative_mask, axis=-1),
+            # )
+
+            clf_loss = tf.reduce_sum(clf_loss, axis=-1)
+            # tf.print("clf_loss:", clf_loss, output_stream="file://clf_loss.txt")
+
+            box_normalizer = tf.reduce_sum(positive_mask, axis=-1)
             box_loss = tf.math.divide_no_nan(
-                tf.reduce_sum(box_loss, axis=-1), normalizer
+                tf.reduce_sum(box_loss, axis=-1), box_normalizer
             )
+            # tf.print("box_loss:", box_loss, output_stream="file://box_loss.txt")
 
             # normalizer = tf.reduce_sum(angle_positive_mask, axis=-1)
             # ang_loss = tf.math.divide_no_nan(

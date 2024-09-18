@@ -10,11 +10,58 @@ import csv, os
 import cv2 as cv
 import numpy as np
 import tensorflow_datasets as tfds
-
-tform = None
+import random
 
 resize_w = 320
 resize_h = resize_w
+
+
+def get_intersection(roi1, roi2):
+    # Unpack the ROIs
+    x1, y1, w1, h1 = roi1
+    x2, y2, w2, h2 = roi2
+
+    # Calculate the intersection rectangle
+    x_inter = max(x1, x2)
+    y_inter = max(y1, y2)
+    w_inter = min(x1 + w1, x2 + w2) - x_inter
+    h_inter = min(y1 + h1, y2 + h2) - y_inter
+
+    # Check if there is an intersection
+    if w_inter > 0 and h_inter > 0:
+        return (x_inter, y_inter, w_inter, h_inter)
+    else:
+        return None
+
+
+def get_random_non_overlapping_roi(image, existing_roi, roi_width, roi_height):
+    img_height, img_width = image.shape[:2]
+    x_min_existing, y_min_existing, x_max_existing, y_max_existing = existing_roi
+
+    while True:
+        # Generate random top-left corner for the new ROI
+        x_min_new = random.randint(0, img_width - roi_width)
+        y_min_new = random.randint(0, img_height - roi_height)
+        x_max_new = x_min_new + roi_width
+        y_max_new = y_min_new + roi_height
+
+        if (
+            get_intersection(
+                (x_min_new, y_min_new, roi_width, roi_height),
+                (
+                    x_min_existing,
+                    y_min_existing,
+                    x_max_existing - x_min_existing,
+                    y_max_existing - y_min_existing,
+                ),
+            )
+            is None
+        ):
+            break
+
+    # print(f"None overlapping ROI: {x_min_new}, {y_min_new}, {x_max_new}, {y_max_new}")
+
+    return (x_min_new, y_min_new, x_max_new, y_max_new)
 
 
 def clamp(value, min_value, max_value):
@@ -49,16 +96,21 @@ def calc_tform(image, xmins, ymins, xmaxs, ymaxs):
 
     M = cv.getAffineTransform(src, dst)
 
-    return M
+    potivive_roi = (lt[0], lt[1], rb[0], rb[1])
+
+    return M, potivive_roi
 
 
 def store(clsnames, xmins, ymins, xmaxs, ymaxs, src_filepath):
     # load image from source file path
     image = cv.imread(src_filepath)
 
+    image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+
     # calculate corp & resize transformation from source image to destination image
 
-    tform = calc_tform(image, xmins, ymins, xmaxs, ymaxs)
+    tform, positive_roi = calc_tform(image, xmins, ymins, xmaxs, ymaxs)
+
     warped = cv.warpAffine(image, tform, (resize_w, resize_h), flags=cv.INTER_LINEAR)
 
     # calcuate new bouding box coordinates in the transormed destination image by reusing the transformation matrix of the source image
@@ -90,7 +142,25 @@ def store(clsnames, xmins, ymins, xmaxs, ymaxs, src_filepath):
 
         objects.append({"bbox": bbox, "label": clsname})
 
-    return src_filepath, warped, objects
+    yield src_filepath, warped, objects
+
+    negative_roi = get_random_non_overlapping_roi(
+        image, positive_roi, resize_w, resize_h
+    )
+
+    negative_tform, _ = calc_tform(
+        image,
+        [negative_roi[0] / image.shape[1]],
+        [negative_roi[1] / image.shape[0]],
+        [negative_roi[2] / image.shape[1]],
+        [negative_roi[3] / image.shape[0]],
+    )
+    neagative_warped = cv.warpAffine(
+        image, negative_tform, (resize_w, resize_h), flags=cv.INTER_LINEAR
+    )
+
+    negative_objects = []
+    yield src_filepath + "negative", neagative_warped, negative_objects
 
 
 # import csv file and perform function on each row
@@ -119,7 +189,10 @@ def read_csv_file(source_ann_filepath):
                 src_lastfilepath = filepath
 
             if filepath != src_lastfilepath:
-                yield store(clsnames, xmins, ymins, xmaxs, ymaxs, src_lastfilepath)
+                for image_path, image, objects in store(
+                    clsnames, xmins, ymins, xmaxs, ymaxs, src_lastfilepath
+                ):
+                    yield image_path, image, objects
 
                 # update
                 src_lastfilepath = filepath
@@ -148,4 +221,7 @@ def read_csv_file(source_ann_filepath):
             ymaxs.append(ymax)
 
         # store last after all src rows were processed
-        yield store(clsnames, xmins, ymins, xmaxs, ymaxs, src_lastfilepath)
+        for image_path, image, objects in store(
+            clsnames, xmins, ymins, xmaxs, ymaxs, src_lastfilepath
+        ):
+            yield image_path, image, objects

@@ -156,7 +156,7 @@ class EffDetLoss(tf.keras.losses.Loss):
         self.angle_loss = tf.keras.losses.MeanSquaredError()
         self.num_classes = num_classes
 
-    @tf.autograph.experimental.do_not_convert
+    # @tf.autograph.experimental.do_not_convert
     def call(self, y_true, y_pred):
         """Calculate Focal and Huber losses for every anchor box.
 

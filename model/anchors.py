@@ -144,8 +144,8 @@ class SamplesEncoder:
         box_target = box_target / self._box_variance
         return box_target
 
-    # @tf.autograph.experimental.do_not_convert
     # @tf.function
+    @tf.autograph.experimental.do_not_convert
     def _encode_sample(self, image_shape, gt_boxes, classes, angles):
         if self.anchor_boxes is None:
             self.anchor_boxes = self._anchors.get_anchors(
@@ -161,6 +161,7 @@ class SamplesEncoder:
         box_target = self._compute_box_target(
             self.anchor_boxes, matched_gt_boxes
         )  # compute shift + scale of anchor to match 'gt box'
+        # tf.debugging.check_numerics(box_target, "box_target contains NaN or Inf")
 
         # tf.print("classes:", classes, output_stream=sys.stderr)
         # tf.print("angles:", angles, output_stream=sys.stderr)

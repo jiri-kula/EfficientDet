@@ -18,7 +18,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import tensorflow as tf
 
-TFLITE_CONVERSION = False
+TFLITE_CONVERSION = True
 
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
@@ -46,7 +46,7 @@ import tensorflow_datasets as tfds
 
 EPOCHS = 200
 BATCH_SIZE = 4 if EAGERLY else 16
-checkpoint_dir = "checkpoints/kk_dataset_var_none_00001"
+checkpoint_dir = "checkpoints/kk_dataset_var_none_00001_negatives"
 
 # # laod list of tfrecord files
 # with open("list_12_norot.txt") as file:
@@ -78,7 +78,7 @@ print("Loading dataset", end=" ")
 se = SamplesEncoder()
 
 
-@tf.autograph.experimental.do_not_convert
+# @tf.autograph.experimental.do_not_convert
 def decode_fn(sample):
     image = tf.cast(sample["image"], tf.float32)
     gt_classes = tf.cast(sample["objects"]["label"], tf.float32)
@@ -88,21 +88,37 @@ def decode_fn(sample):
     y1, x1, y2, x2 = tf.split(gt_boxes, 4, axis=-1)
     gt_boxes = tf.concat([(x1 + x2) / 2.0, (y1 + y2) / 2.0, x2 - x1, y2 - y1], axis=-1)
 
-    # Dynamically determine the batch size
-    batch_size = tf.shape(gt_boxes)[0]
-    gt_angles = tf.zeros(shape=(batch_size, 6), dtype=tf.float32)
-    # image, gt_boxes, gt_classes, gt_angles = raw2label(item)
+    def handle_empty_boxes():
+        print("Empty gt_boxes detected, creating default label.")
+        default_gt_boxes = tf.ones(
+            (1, 4), dtype=tf.float32
+        )  # using ones to avoid log(0) in box_target
+        default_gt_classes = tf.zeros((1,), dtype=tf.float32)
+        default_gt_angles = tf.zeros((1, 6), dtype=tf.float32)
+        return default_gt_boxes, default_gt_classes, default_gt_angles
+
+    def handle_non_empty_boxes():
+        batch_size = tf.shape(gt_boxes)[0]
+        gt_angles = tf.zeros(shape=(batch_size, 6), dtype=tf.float32)
+        return gt_boxes, gt_classes, gt_angles
+
+    gt_boxes, gt_classes, gt_angles = tf.cond(
+        tf.equal(tf.size(gt_boxes), 0), handle_empty_boxes, handle_non_empty_boxes
+    )
+
+    # batch_size = tf.shape(gt_boxes)[0]
+    # gt_angles = tf.zeros(shape=(batch_size, 6), dtype=tf.float32)
 
     label = se._encode_sample(image.shape, gt_boxes, gt_classes, gt_angles)
 
     return image, label
 
 
-train_data = tfds.load("kk_dataset", split="train", shuffle_files=True).map(
-    decode_fn, num_parallel_calls=tf.data.AUTOTUNE
+train_data = tfds.load("kk_dataset", split="train", shuffle_files=False).map(
+    decode_fn, num_parallel_calls=1  # tf.data.AUTOTUNE
 )
 train_data = train_data.cache()
-train_data = train_data.shuffle(1000)
+# train_data = train_data.shuffle(1000)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
 

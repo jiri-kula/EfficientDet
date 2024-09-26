@@ -6,3 +6,8 @@ It should also contain any processing which has been applied (if any),
 
 Reference
 https://www.tensorflow.org/datasets/add_dataset
+
+Tutorial
+cd /home/jiri/EfficientDet/datasets/kk_dataset
+tfds build
+cd ~/tensorflow_datasets/kk_dataset/1.0.1

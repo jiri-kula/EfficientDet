@@ -7,8 +7,9 @@ import adaptive_strategy
 class Builder(tfds.core.GeneratorBasedBuilder):
     """DatasetBuilder for kk_dataset dataset."""
 
-    VERSION = tfds.core.Version("1.0.0")
+    VERSION = tfds.core.Version("1.0.1")
     RELEASE_NOTES = {
+        "1.0.1": "Contains datasets 8, 9, 10.",
         "1.0.0": "Initial release.",
     }
 
@@ -43,7 +44,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         # TODO(kk_dataset): Returns the Dict[split names, Iterator[Key, Example]]
         return {
             "train": self._generate_examples(
-                path="/home/jiri/detector_dataset_8/annotation.csv"
+                path="/home/jiri/detector_datasets/8_9_10.csv"
             ),
         }
 

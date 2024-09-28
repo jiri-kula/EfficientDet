@@ -13,128 +13,41 @@
 # Training accuracy higly dependend on proper initialization of anchors
 
 import os
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-
+import datetime
 import tensorflow as tf
-
-TFLITE_CONVERSION = False
+import tensorflow_datasets as tfds
+from model.efficientdet import EfficientDet
+from model.anchors import SamplesEncoder
+from model.utils import to_corners
+from dataset_api import create_dataset
+from datasets.decode_function import decode_fn
 
 EAGERLY = False
-tf.config.run_functions_eagerly(EAGERLY)
-# if EAGERLY:
-#     tf.data.experimental.enable_debug_mode()
-
-import datetime, os
-import numpy as np
-import keras
-from model.efficientdet import EfficientDet
-from model.losses import EffDetLoss, AngleLoss
-from model.anchors import SamplesEncoder, Anchors
-import random
-
-# from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
-from model.utils import to_corners
-
-import dataset_api
-from dataset_api import create_dataset
-
-# from tfrecord_decode import decode_fn
-
-import tensorflow_datasets as tfds
-
-
-EPOCHS = 250
+NUM_CLASSES = 2
 BATCH_SIZE = 4 if EAGERLY else 16
+EPOCHS = 50
+TFLITE_CONVERSION = False
+VAR_FREEZE_EXPR = "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
+
 checkpoint_dir = "checkpoints/v1_0_3_4_var_none"
 
-# # laod list of tfrecord files
-# with open("list_12_norot.txt") as file:
-#     train_list  = [line.rstrip() for line in file]
-# random.shuffle(train_list)
-
-# # print shuffeled tfrecord files
-# for item in train_list:
-#     if not os.path.isfile(item):
-#         raise ValueError(item)
-
-# train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
-# train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
-# train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv")
-
-print("Loading dataset", end=" ")
-# train_data = tf.data.TFRecordDataset(
-#     # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
-#     # "/mnt/c/Edwards/zaznamy_z_vyroby.tfrecord"
-#     "/home/jiri/tfrecords_allrot/_home_jiri_output_adaptive.tfrecord"
-#     # "/home/jiri/tfrecords_allrot/_home_jiri_kk_csv.tfrecord"
-# ).map(decode_fn)
-
-# train_data = train_data.shuffle(4096)
-# train_data = train_data.batch(BATCH_SIZE)
-# train_data = train_data.prefetch(tf.data.AUTOTUNE)
-# print("done")
-
-se = SamplesEncoder()
-
-
-# @tf.autograph.experimental.do_not_convert
-def decode_fn(sample):
-    image = tf.cast(sample["image"], tf.float32)
-    gt_classes = tf.cast(sample["objects"]["label"], tf.float32)
-
-    gt_boxes = sample["objects"]["bbox"]
-    gt_boxes = tf.multiply(gt_boxes, 320.0)
-    y1, x1, y2, x2 = tf.split(gt_boxes, 4, axis=-1)
-    gt_boxes = tf.concat([(x1 + x2) / 2.0, (y1 + y2) / 2.0, x2 - x1, y2 - y1], axis=-1)
-
-    def handle_empty_boxes():
-        print("Empty gt_boxes detected, creating default label.")
-        default_gt_boxes = tf.ones(
-            (1, 4), dtype=tf.float32
-        )  # using ones to avoid log(0) in box_target
-        default_gt_classes = tf.zeros((1,), dtype=tf.float32)
-        default_gt_angles = tf.zeros((1, 6), dtype=tf.float32)
-        return default_gt_boxes, default_gt_classes, default_gt_angles
-
-    def handle_non_empty_boxes():
-        batch_size = tf.shape(gt_boxes)[0]
-        gt_angles = tf.zeros(shape=(batch_size, 6), dtype=tf.float32)
-        return gt_boxes, gt_classes, gt_angles
-
-    gt_boxes, gt_classes, gt_angles = tf.cond(
-        tf.equal(tf.size(gt_boxes), 0), handle_empty_boxes, handle_non_empty_boxes
-    )
-
-    # batch_size = tf.shape(gt_boxes)[0]
-    # gt_angles = tf.zeros(shape=(batch_size, 6), dtype=tf.float32)
-
-    label = se._encode_sample(image.shape, gt_boxes, gt_classes, gt_angles)
-
-    return image, label
-
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+tf.config.run_functions_eagerly(EAGERLY)
 
 ds0 = tfds.load("kk_dataset:1.0.0", split="train", shuffle_files=True)
 ds1 = tfds.load("kk_dataset:1.0.1", split="train", shuffle_files=True)
 ds2 = tfds.load("kk_dataset:1.0.2", split="train", shuffle_files=True)
 ds3 = tfds.load("kk_dataset:1.0.3", split="train", shuffle_files=True)
+ds4 = tfds.load("kk_dataset:1.0.4", split="train", shuffle_files=True)
 
-# train_data = ds0.concatenate(ds1.concatenate(ds2)).map(
-#     decode_fn, num_parallel_calls=1  # tf.data.AUTOTUNE
-# )
-
-train_data = ds3.map(decode_fn, num_parallel_calls=1)  # tf.data.AUTOTUNE
-# train_data = train_data.cache()
+train_data = ds3.concatenate(ds4).map(
+    decode_fn, num_parallel_calls=1
+)  # tf.data.AUTOTUNE
 train_data = train_data.shuffle(1000)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
 
-
-# gen_data = dataset_api.create_generator()
-
 # %%
-NUM_CLASSES = 2
-
 model = EfficientDet(
     channels=64,
     num_classes=NUM_CLASSES,
@@ -145,8 +58,7 @@ model = EfficientDet(
     export_tflite=TFLITE_CONVERSION,
 )
 
-model.var_freeze_expr = None  # "efficientnet-lite0|resample_p6|fpn_cells"
-
+model.var_freeze_expr = VAR_FREEZE_EXPR  # "efficientnet-lite0|resample_p6|fpn_cells"
 print("var_freeze_expr: ", model.var_freeze_expr)
 
 print("model compilation", end=" ")
@@ -184,9 +96,6 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     mode="min",
     save_best_only=True,
 )
-
-
-# %%
 
 # tensorboard
 # time based log_dir

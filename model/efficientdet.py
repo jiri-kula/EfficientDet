@@ -229,7 +229,13 @@ class EfficientDet(tf.keras.Model):
 
             # filter anchor boxes
             positive_mask = tf.greater(y_true[..., 10], -1.0)
-            ignore_mask = tf.cast(tf.equal(y_true[..., 10], -2.0), dtype=tf.float32)
+            ignore_mask = tf.equal(y_true[..., 10], -2.0)
+
+            # netagive  mask means not positive and not ignore
+            negative_mask = tf.math.logical_and(
+                tf.math.logical_not(positive_mask),
+                tf.math.logical_not(ignore_mask),
+            )
 
             # angle_positive_mask = tf.greater(tf.reduce_sum(tf.abs(angle_labels)), 0.0)
             # angle_positive_mask = tf.math.logical_and(
@@ -237,6 +243,7 @@ class EfficientDet(tf.keras.Model):
             # )
 
             positive_mask = tf.cast(positive_mask, dtype=tf.float32)
+            ignore_mask = tf.cast(ignore_mask, dtype=tf.float32)
             # angle_positive_mask = tf.cast(angle_positive_mask, dtype=tf.float32)
 
             # loss for each anchor
@@ -260,7 +267,30 @@ class EfficientDet(tf.keras.Model):
             #     tf.reduce_sum(negative_mask, axis=-1),
             # )
 
-            clf_loss = tf.reduce_sum(clf_loss, axis=-1)
+            positive_count = tf.reduce_sum(tf.cast(positive_mask, dtype=tf.float32))
+
+            # calculate negative count, which is total lenghts of the mask minus positive count minus ignore count
+
+            ignore_count = tf.reduce_sum(tf.cast(ignore_mask, dtype=tf.float32))
+            negative_count = tf.cast(
+                tf.cast(tf.shape(positive_mask)[1], dtype=tf.float32)
+                - positive_count
+                - ignore_count,
+                dtype=tf.float32,
+            )
+
+            total_samples = positive_count + negative_count
+            positive_weight = positive_count / total_samples
+            negative_weight = negative_count / total_samples
+
+            positive_loss = tf.where(tf.equal(positive_mask, 1.0), clf_loss, 0.0)
+            negative_loss = tf.where(negative_mask, clf_loss, 0.0)
+
+            positive_loss = tf.reduce_sum(positive_loss, axis=-1)
+            negative_loss = tf.reduce_sum(negative_loss, axis=-1)
+
+            # clf_loss = tf.reduce_sum(clf_loss, axis=-1)
+            clf_loss = negative_weight * positive_loss + positive_weight * negative_loss
             # tf.print("clf_loss:", clf_loss, output_stream="file://clf_loss.txt")
 
             box_normalizer = tf.reduce_sum(positive_mask, axis=-1)

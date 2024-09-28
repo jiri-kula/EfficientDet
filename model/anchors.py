@@ -11,7 +11,11 @@ class Anchors:
     def __init__(
         self,
         aspect_ratios=[1.0],
-        scales=[0.0],
+        scales=[
+            0,
+            1.0 / 3.0,
+            2.0 / 3.0,
+        ],  # WARNING: change of scales or aspect_ratios -> modify train.py num_anchors=3 parameter of the model
     ):
         """Initialize anchors generator.
 

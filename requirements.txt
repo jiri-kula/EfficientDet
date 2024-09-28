@@ -11,3 +11,6 @@ progress
 scikit-learn
 numpy<2
 open3d
+onnxruntime 
+onnxruntime-tools
+tensorflow-datasets

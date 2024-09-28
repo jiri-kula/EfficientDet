@@ -18,7 +18,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import tensorflow as tf
 
-TFLITE_CONVERSION = True
+TFLITE_CONVERSION = False
 
 EAGERLY = False
 tf.config.run_functions_eagerly(EAGERLY)
@@ -44,9 +44,9 @@ from dataset_api import create_dataset
 import tensorflow_datasets as tfds
 
 
-EPOCHS = 200
+EPOCHS = 250
 BATCH_SIZE = 4 if EAGERLY else 16
-checkpoint_dir = "checkpoints/kk_dataset_var_none_00001_negatives"
+checkpoint_dir = "checkpoints/v1_0_3_4_var_none"
 
 # # laod list of tfrecord files
 # with open("list_12_norot.txt") as file:
@@ -114,11 +114,18 @@ def decode_fn(sample):
     return image, label
 
 
-train_data = tfds.load("kk_dataset", split="train", shuffle_files=False).map(
-    decode_fn, num_parallel_calls=1  # tf.data.AUTOTUNE
-)
-train_data = train_data.cache()
-# train_data = train_data.shuffle(1000)
+ds0 = tfds.load("kk_dataset:1.0.0", split="train", shuffle_files=True)
+ds1 = tfds.load("kk_dataset:1.0.1", split="train", shuffle_files=True)
+ds2 = tfds.load("kk_dataset:1.0.2", split="train", shuffle_files=True)
+ds3 = tfds.load("kk_dataset:1.0.3", split="train", shuffle_files=True)
+
+# train_data = ds0.concatenate(ds1.concatenate(ds2)).map(
+#     decode_fn, num_parallel_calls=1  # tf.data.AUTOTUNE
+# )
+
+train_data = ds3.map(decode_fn, num_parallel_calls=1)  # tf.data.AUTOTUNE
+# train_data = train_data.cache()
+train_data = train_data.shuffle(1000)
 train_data = train_data.batch(BATCH_SIZE)
 train_data = train_data.prefetch(tf.data.AUTOTUNE)
 
@@ -131,7 +138,7 @@ NUM_CLASSES = 2
 model = EfficientDet(
     channels=64,
     num_classes=NUM_CLASSES,
-    num_anchors=1,
+    num_anchors=3,
     bifpn_depth=3,
     heads_depth=3,
     name="efficientdet_d0",
@@ -139,11 +146,12 @@ model = EfficientDet(
 )
 
 model.var_freeze_expr = None  # "efficientnet-lite0|resample_p6|fpn_cells"
+
 print("var_freeze_expr: ", model.var_freeze_expr)
 
 print("model compilation", end=" ")
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
     # optimizer=tf.keras.optimizers.SGD(learning_rate=0.001, momentum=0.9),
     loss=None,
     run_eagerly=EAGERLY,
@@ -227,9 +235,9 @@ model.compute_output_shape((1, 320, 320, 3))
 # https://www.tensorflow.org/lite/performance/post_training_quantization
 
 
-def representative_dataset():
-    data = train_data.take(10)
-    for image, label in data:
+def representative_dataset_gen():
+    for input_value in train_data.take(1):
+        image, label = input_value
         yield [image]
 
 
@@ -245,7 +253,7 @@ converter = tf.lite.TFLiteConverter.from_keras_model(model)
 # This enables quantization
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 # This sets the representative dataset for quantization
-converter.representative_dataset = representative_dataset
+converter.representative_dataset = representative_dataset_gen
 # This ensures that if any ops can't be quantized, the converter throws an error
 # converter.target_spec.supported_ops = [
 #     tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
@@ -270,6 +278,7 @@ with open("model.tflite", "wb") as f:
     f.write(tflite_model)
     print("Done writing model to drive.")
 
+exit()
 # %%
 interpreter = tf.lite.Interpreter("model.tflite")
 input = interpreter.get_input_details()[0]  # Model has single input.

@@ -14,7 +14,7 @@ with open("anchors.txt", "w") as file:
     # Write the values to the text file
     np.savetxt(file, tensor_values, fmt="%s")
 
-print("Tensor values have been written to tensor_values.txt")
+print("Tensor values have been written to anchors.txt")
 # %%
 from model.anchors import SamplesEncoder
 import tensorflow_datasets as tfds

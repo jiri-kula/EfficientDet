@@ -9,6 +9,7 @@ sudo apt install        \
       libsqlite3-dev    \
       libssl-dev        \
       libbz2-dev        \
+      liblzma-dev       \
       -y
 ./configure --enable-optimizations
 make -j12

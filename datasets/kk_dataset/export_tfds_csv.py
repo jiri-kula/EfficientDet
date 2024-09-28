@@ -7,7 +7,8 @@ from tqdm import tqdm
 
 
 # %%
-no_box = 1 / 320.0
+scale = 320.0  # pro Vojtu 1, pro Davida 320
+no_box = scale / 320.0
 no_class = 0
 
 
@@ -24,7 +25,7 @@ def export_dataset(dataset_name, split="train", output_dir="output"):
     annotations = []
 
     # Iterate over the dataset
-    for i, example in enumerate(tqdm(ds.take(5), desc="Processing dataset")):
+    for i, example in enumerate(tqdm(ds, desc="Processing dataset")):
         # Extract image and convert to numpy array
         image = example["image"].numpy()
         image_path = os.path.join(images_dir, f"image_{i}.png")
@@ -43,7 +44,16 @@ def export_dataset(dataset_name, split="train", output_dir="output"):
             for bbox, label in zip(bboxes, class_labels):
                 ymin, xmin, ymax, xmax = bbox.numpy()
                 class_label = label.numpy()
-                annotations.append([image_path, xmin, xmax, ymin, ymax, class_label])
+                annotations.append(
+                    [
+                        image_path,
+                        scale * xmin,
+                        scale * xmax,
+                        scale * ymin,
+                        scale * ymax,
+                        class_label,
+                    ]
+                )
 
     # Write annotations to CSV file
     with open(annotations_file, mode="w", newline="") as file:
@@ -55,6 +65,6 @@ def export_dataset(dataset_name, split="train", output_dir="output"):
 
 
 # Example usage
-export_dataset("kk_dataset:1.0.1")
+export_dataset("kk_dataset:1.0.2")
 
 # %%

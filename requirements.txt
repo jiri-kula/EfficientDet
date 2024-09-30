@@ -11,3 +11,4 @@ progress
 scikit-learn
 numpy<2
 open3d
+tensorflow_datasets

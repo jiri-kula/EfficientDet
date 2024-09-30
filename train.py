@@ -1,4 +1,12 @@
 # %%
+import argparse
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description="Train EfficientDet model.")
+parser.add_argument(
+    "--tflite_conversion", type=bool, default=False, help="Enable TFLite conversion"
+)
+args = parser.parse_args()
 
 # Train checklist
 # [] Create tfrecord out of csv file
@@ -6,52 +14,38 @@
 # [] Set checkpoint_dir
 # [] Set var_freeze_expr
 
-# SDG
-# lr = (0.0001-0.0005), momentum=0.9
-
 # Notes
 # Training accuracy higly dependend on proper initialization of anchors
 
 import os
 import datetime
 import tensorflow as tf
-import tensorflow_datasets as tfds
 from model.efficientdet import EfficientDet
-from model.anchors import SamplesEncoder
-from model.utils import to_corners
-from dataset_api import create_dataset
-from datasets.decode_function import decode_fn
+from datasets.decode_function import build_dataset
 
+INPUT_SIZE = 384
+TFLITE_CONVERSION = args.tflite_conversion  # Use the parsed argument
 EAGERLY = False
 NUM_CLASSES = 2
-BATCH_SIZE = 4 if EAGERLY else 16
+BATCH_SIZE = 4 if EAGERLY else 8
 EPOCHS = 50
-TFLITE_CONVERSION = False
-VAR_FREEZE_EXPR = "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
+VAR_FREEZE_EXPR = (
+    None  # "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
+)
 
-checkpoint_dir = "checkpoints/v1_0_3_4_var_none"
+checkpoint_dir = "checkpoints/v_ds4_var_none"
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+tf.get_logger().setLevel("ERROR")
 tf.config.run_functions_eagerly(EAGERLY)
 
-ds0 = tfds.load("kk_dataset:1.0.0", split="train", shuffle_files=True)
-ds1 = tfds.load("kk_dataset:1.0.1", split="train", shuffle_files=True)
-ds2 = tfds.load("kk_dataset:1.0.2", split="train", shuffle_files=True)
-ds3 = tfds.load("kk_dataset:1.0.3", split="train", shuffle_files=True)
-ds4 = tfds.load("kk_dataset:1.0.4", split="train", shuffle_files=True)
-
-train_data = ds3.concatenate(ds4).map(
-    decode_fn, num_parallel_calls=1
-)  # tf.data.AUTOTUNE
-train_data = train_data.shuffle(1000)
-train_data = train_data.batch(BATCH_SIZE)
-train_data = train_data.prefetch(tf.data.AUTOTUNE)
+train_data = build_dataset(BATCH_SIZE)
 
 # %%
 model = EfficientDet(
     channels=64,
     num_classes=NUM_CLASSES,
-    num_anchors=3,
+    num_anchors=9,  # num_scales * mum_aspects
     bifpn_depth=3,
     heads_depth=3,
     name="efficientdet_d0",
@@ -63,7 +57,7 @@ print("var_freeze_expr: ", model.var_freeze_expr)
 
 print("model compilation", end=" ")
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
     # optimizer=tf.keras.optimizers.SGD(learning_rate=0.001, momentum=0.9),
     loss=None,
     run_eagerly=EAGERLY,
@@ -72,7 +66,7 @@ print(" done")
 
 # %%
 print("model build", end=" ")
-model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
+model.build(input_shape=(BATCH_SIZE, INPUT_SIZE, INPUT_SIZE, 3))
 print(" done")
 
 model.summary(show_trainable=True)
@@ -97,6 +91,21 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     save_best_only=True,
 )
 
+
+class ImageLogger(tf.keras.callbacks.Callback):
+    def __init__(self, log_dir, validation_data):
+        super().__init__()
+        self.log_dir = log_dir
+        self.validation_data = validation_data
+        self.file_writer = tf.summary.create_file_writer(log_dir)
+
+    def on_epoch_end(self, epoch, logs=None):
+        val_images, val_labels = next(iter(self.validation_data))
+        val_images = tf.cast(val_images, tf.float32) / 255.0
+        with self.file_writer.as_default():
+            tf.summary.image("Validation Images", val_images, step=epoch)
+
+
 # tensorboard
 # time based log_dir
 log_dir = "logs/fit/" + datetime.datetime.now().strftime(
@@ -114,10 +123,6 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
     write_images=False,
 )
 
-# train_data = ds2.shuffle(5000)
-# train_data = train_data.padded_batch(BATCH_SIZE)
-# train_data = train_data.prefetch(tf.data.AUTOTUNE)
-
 if not TFLITE_CONVERSION:
     history = model.fit(
         train_data,
@@ -130,6 +135,7 @@ if not TFLITE_CONVERSION:
             model_checkpoint_callback,
             tensorboard_callback,
             tf.keras.callbacks.TerminateOnNaN(),
+            # ImageLogger(log_dir, train_data),
         ],
     )
 
@@ -139,21 +145,15 @@ if not TFLITE_CONVERSION:
     exit()
 
 print("Conversion")
-model.compute_output_shape((1, 320, 320, 3))
+model.compute_output_shape((1, INPUT_SIZE, INPUT_SIZE, 3))
 
 # https://www.tensorflow.org/lite/performance/post_training_quantization
 
 
 def representative_dataset_gen():
-    for input_value in train_data.take(1):
+    for input_value in train_data.take(100):
         image, label = input_value
         yield [image]
-
-
-# def representative_dataset():
-#     for _ in range(100):
-#         data = 255.0 * np.random.rand(1, 320, 320, 3)
-#         yield [data.astype(np.float32)]
 
 
 # Convert the model
@@ -235,9 +235,3 @@ retval[0, ianchor, :]
 
 # %%
 model.predict(images[0])
-# %%
-
-se = SamplesEncoder()
-se._anchors._compute_dims()
-
-# %%

@@ -79,10 +79,8 @@ class EfficientDet(tf.keras.Model):
 
         self.mean_angle_metric = tf.metrics.Mean(name="mean_angle_metric")
 
-        # self.backbone = get_backbone(backbone_name)
-        # self.backbone.trainable = False
         self.backbone = hub.KerasLayer(
-            "https://tfhub.dev/tensorflow/efficientdet/lite0/feature-vector/1",
+            "https://tfhub.dev/tensorflow/efficientdet/lite1/feature-vector/1",
             trainable=True,
         )
 

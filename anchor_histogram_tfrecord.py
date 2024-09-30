@@ -10,19 +10,17 @@ import matplotlib.pyplot as plt
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
+from tqdm import tqdm
 
 
 # %%
-def analyze_bounding_boxes(dataset_name, split="train"):
-    # Load the dataset
-    ds = tfds.load(dataset_name, split=split, shuffle_files=False)
-
+def analyze_bounding_boxes(ds):
     # Initialize min and max bounding box dimensions
     min_bbox = [float("inf"), float("inf")]
     max_bbox = [float("-inf"), float("-inf")]
 
     # Iterate over the dataset
-    for example in ds:
+    for i, example in enumerate(tqdm(ds)):
         objects = example["objects"]
         bboxes = objects["bbox"]
 
@@ -42,11 +40,17 @@ def analyze_bounding_boxes(dataset_name, split="train"):
                 max_bbox[1] = height
 
     # Output the results
-    print(f"Minimum bounding box dimensions: {min_bbox}")
-    print(f"Maximum bounding box dimensions: {max_bbox}")
+    print(f"Minimum bounding box dimensions: {320 * np.array(min_bbox)}")
+    print(f"Maximum bounding box dimensions: {320 * np.array(max_bbox)}")
 
 
 # Example usage
-analyze_bounding_boxes("kk_dataset:1.0.1")
+
+ds0 = tfds.load("kk_dataset:1.0.0", split="train", shuffle_files=True)
+ds1 = tfds.load("kk_dataset:1.0.1", split="train", shuffle_files=True)
+ds2 = tfds.load("kk_dataset:1.0.2", split="train", shuffle_files=True)
+ds = ds0.concatenate(ds1.concatenate(ds2))
+
+analyze_bounding_boxes(ds0)
 
 # %%

@@ -12,3 +12,13 @@ models
 images
 *.png
 remote
+.onnx
+.venv
+.effdet
+.cuda
+.conda
+__pycache__
+keras_model
+*.tflite
+*.log
+*.onnx

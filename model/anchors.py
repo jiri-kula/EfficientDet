@@ -10,8 +10,12 @@ class Anchors:
 
     def __init__(
         self,
-        aspect_ratios=[1.0],
-        scales=[0.0],
+        aspect_ratios=[0.8, 1.0, 1.2],
+        scales=[
+            0,
+            1.0 / 3.0,
+            2.0 / 3.0,
+        ],  # WARNING: change of scales or aspect_ratios -> modify train.py num_anchors=3 parameter of the model
     ):
         """Initialize anchors generator.
 
@@ -26,9 +30,7 @@ class Anchors:
         self._num_anchors = len(aspect_ratios) * len(scales)
 
         self._strides = [2**i for i in range(3, 8)]
-        self._areas = [
-            i**2 for i in [24.0, 48.0, 96.0, 192.0, 384.0]  # adaptive
-        ]  # TODO: RV12 shape analysis
+        self._areas = [i**2 for i in [24.0, 48.0, 96.0, 192.0, 384.0]]  # adaptive
         self._anchor_dims = self._compute_dims()
 
     def _compute_dims(self):
@@ -42,7 +44,7 @@ class Anchors:
         for area in self._areas:
             level_dims = list()
             for aspect_ratio in self._aspect_ratios:
-                height = tf.math.sqrt(area * aspect_ratio)
+                height = tf.math.sqrt(area) * aspect_ratio
                 width = area / height
                 dims = tf.cast([width, height], tf.float32)
                 for scale in self._scales:

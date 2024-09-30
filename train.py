@@ -1,4 +1,12 @@
 # %%
+import argparse
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description="Train EfficientDet model.")
+parser.add_argument(
+    "--tflite_conversion", type=bool, default=False, help="Enable TFLite conversion"
+)
+args = parser.parse_args()
 
 # Train checklist
 # [] Create tfrecord out of csv file
@@ -6,139 +14,45 @@
 # [] Set checkpoint_dir
 # [] Set var_freeze_expr
 
-# SDG
-# lr = (0.0001-0.0005), momentum=0.9
-
 # Notes
 # Training accuracy higly dependend on proper initialization of anchors
 
 import os
+import datetime
+import tensorflow as tf
+from model.efficientdet import EfficientDet
+from datasets.decode_function import build_dataset
+
+INPUT_SIZE = 384
+TFLITE_CONVERSION = args.tflite_conversion  # Use the parsed argument
+EAGERLY = False
+NUM_CLASSES = 2
+BATCH_SIZE = 4 if EAGERLY else 8
+EPOCHS = 50
+VAR_FREEZE_EXPR = (
+    None  # "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
+)
+
+checkpoint_dir = "checkpoints/v_ds4_var_none"
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-
-import tensorflow as tf
-
-TFLITE_CONVERSION = True
-
-EAGERLY = False
+tf.get_logger().setLevel("ERROR")
 tf.config.run_functions_eagerly(EAGERLY)
-# if EAGERLY:
-#     tf.data.experimental.enable_debug_mode()
 
-import datetime, os
-import numpy as np
-import keras
-from model.efficientdet import EfficientDet
-from model.losses import EffDetLoss, AngleLoss
-from model.anchors import SamplesEncoder, Anchors
-import random
-
-# from dataset import CSVDataset, image_mosaic, IMG_OUT_SIZE
-from model.utils import to_corners
-
-import dataset_api
-from dataset_api import create_dataset
-
-# from tfrecord_decode import decode_fn
-
-import tensorflow_datasets as tfds
-
-
-EPOCHS = 200
-BATCH_SIZE = 4 if EAGERLY else 16
-checkpoint_dir = "checkpoints/kk_dataset_var_none_00001_negatives"
-
-# # laod list of tfrecord files
-# with open("list_12_norot.txt") as file:
-#     train_list  = [line.rstrip() for line in file]
-# random.shuffle(train_list)
-
-# # print shuffeled tfrecord files
-# for item in train_list:
-#     if not os.path.isfile(item):
-#         raise ValueError(item)
-
-# train_data2 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-3/merge.csv")
-# train_data3 = create_dataset("/mnt/c/Edwards/annotation/RV12/robotic-4/merge.csv")
-# train_data4 = create_dataset("/home/jiri/winpart/Edwards/annotation/RV12/merge-e.csv")
-
-print("Loading dataset", end=" ")
-# train_data = tf.data.TFRecordDataset(
-#     # "/home/jiri/winpart/Edwards/tfrecords_allrot/_home_jiri_remote_sd_DetectionData_Dataset_zaznamy_z_vyroby_2023_03_08_rv12_09_47_27.tfrecord"
-#     # "/mnt/c/Edwards/zaznamy_z_vyroby.tfrecord"
-#     "/home/jiri/tfrecords_allrot/_home_jiri_output_adaptive.tfrecord"
-#     # "/home/jiri/tfrecords_allrot/_home_jiri_kk_csv.tfrecord"
-# ).map(decode_fn)
-
-# train_data = train_data.shuffle(4096)
-# train_data = train_data.batch(BATCH_SIZE)
-# train_data = train_data.prefetch(tf.data.AUTOTUNE)
-# print("done")
-
-se = SamplesEncoder()
-
-
-# @tf.autograph.experimental.do_not_convert
-def decode_fn(sample):
-    image = tf.cast(sample["image"], tf.float32)
-    gt_classes = tf.cast(sample["objects"]["label"], tf.float32)
-
-    gt_boxes = sample["objects"]["bbox"]
-    gt_boxes = tf.multiply(gt_boxes, 320.0)
-    y1, x1, y2, x2 = tf.split(gt_boxes, 4, axis=-1)
-    gt_boxes = tf.concat([(x1 + x2) / 2.0, (y1 + y2) / 2.0, x2 - x1, y2 - y1], axis=-1)
-
-    def handle_empty_boxes():
-        print("Empty gt_boxes detected, creating default label.")
-        default_gt_boxes = tf.ones(
-            (1, 4), dtype=tf.float32
-        )  # using ones to avoid log(0) in box_target
-        default_gt_classes = tf.zeros((1,), dtype=tf.float32)
-        default_gt_angles = tf.zeros((1, 6), dtype=tf.float32)
-        return default_gt_boxes, default_gt_classes, default_gt_angles
-
-    def handle_non_empty_boxes():
-        batch_size = tf.shape(gt_boxes)[0]
-        gt_angles = tf.zeros(shape=(batch_size, 6), dtype=tf.float32)
-        return gt_boxes, gt_classes, gt_angles
-
-    gt_boxes, gt_classes, gt_angles = tf.cond(
-        tf.equal(tf.size(gt_boxes), 0), handle_empty_boxes, handle_non_empty_boxes
-    )
-
-    # batch_size = tf.shape(gt_boxes)[0]
-    # gt_angles = tf.zeros(shape=(batch_size, 6), dtype=tf.float32)
-
-    label = se._encode_sample(image.shape, gt_boxes, gt_classes, gt_angles)
-
-    return image, label
-
-
-train_data = tfds.load("kk_dataset", split="train", shuffle_files=False).map(
-    decode_fn, num_parallel_calls=1  # tf.data.AUTOTUNE
-)
-train_data = train_data.cache()
-# train_data = train_data.shuffle(1000)
-train_data = train_data.batch(BATCH_SIZE)
-train_data = train_data.prefetch(tf.data.AUTOTUNE)
-
-
-# gen_data = dataset_api.create_generator()
+train_data = build_dataset(BATCH_SIZE)
 
 # %%
-NUM_CLASSES = 2
-
 model = EfficientDet(
     channels=64,
     num_classes=NUM_CLASSES,
-    num_anchors=1,
+    num_anchors=9,  # num_scales * mum_aspects
     bifpn_depth=3,
     heads_depth=3,
     name="efficientdet_d0",
     export_tflite=TFLITE_CONVERSION,
 )
 
-model.var_freeze_expr = None  # "efficientnet-lite0|resample_p6|fpn_cells"
+model.var_freeze_expr = VAR_FREEZE_EXPR  # "efficientnet-lite0|resample_p6|fpn_cells"
 print("var_freeze_expr: ", model.var_freeze_expr)
 
 print("model compilation", end=" ")
@@ -152,7 +66,7 @@ print(" done")
 
 # %%
 print("model build", end=" ")
-model.build(input_shape=(BATCH_SIZE, 320, 320, 3))
+model.build(input_shape=(BATCH_SIZE, INPUT_SIZE, INPUT_SIZE, 3))
 print(" done")
 
 model.summary(show_trainable=True)
@@ -178,7 +92,19 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 )
 
 
-# %%
+class ImageLogger(tf.keras.callbacks.Callback):
+    def __init__(self, log_dir, validation_data):
+        super().__init__()
+        self.log_dir = log_dir
+        self.validation_data = validation_data
+        self.file_writer = tf.summary.create_file_writer(log_dir)
+
+    def on_epoch_end(self, epoch, logs=None):
+        val_images, val_labels = next(iter(self.validation_data))
+        val_images = tf.cast(val_images, tf.float32) / 255.0
+        with self.file_writer.as_default():
+            tf.summary.image("Validation Images", val_images, step=epoch)
+
 
 # tensorboard
 # time based log_dir
@@ -197,10 +123,6 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
     write_images=False,
 )
 
-# train_data = ds2.shuffle(5000)
-# train_data = train_data.padded_batch(BATCH_SIZE)
-# train_data = train_data.prefetch(tf.data.AUTOTUNE)
-
 if not TFLITE_CONVERSION:
     history = model.fit(
         train_data,
@@ -213,6 +135,7 @@ if not TFLITE_CONVERSION:
             model_checkpoint_callback,
             tensorboard_callback,
             tf.keras.callbacks.TerminateOnNaN(),
+            # ImageLogger(log_dir, train_data),
         ],
     )
 
@@ -222,21 +145,15 @@ if not TFLITE_CONVERSION:
     exit()
 
 print("Conversion")
-model.compute_output_shape((1, 320, 320, 3))
+model.compute_output_shape((1, INPUT_SIZE, INPUT_SIZE, 3))
 
 # https://www.tensorflow.org/lite/performance/post_training_quantization
 
 
-def representative_dataset():
-    data = train_data.take(10)
-    for image, label in data:
+def representative_dataset_gen():
+    for input_value in train_data.take(100):
+        image, label = input_value
         yield [image]
-
-
-# def representative_dataset():
-#     for _ in range(100):
-#         data = 255.0 * np.random.rand(1, 320, 320, 3)
-#         yield [data.astype(np.float32)]
 
 
 # Convert the model
@@ -245,7 +162,7 @@ converter = tf.lite.TFLiteConverter.from_keras_model(model)
 # This enables quantization
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 # This sets the representative dataset for quantization
-converter.representative_dataset = representative_dataset
+converter.representative_dataset = representative_dataset_gen
 # This ensures that if any ops can't be quantized, the converter throws an error
 # converter.target_spec.supported_ops = [
 #     tf.lite.OpsSet.TFLITE_BUILTINS_INT8,
@@ -270,6 +187,7 @@ with open("model.tflite", "wb") as f:
     f.write(tflite_model)
     print("Done writing model to drive.")
 
+exit()
 # %%
 interpreter = tf.lite.Interpreter("model.tflite")
 input = interpreter.get_input_details()[0]  # Model has single input.
@@ -317,9 +235,3 @@ retval[0, ianchor, :]
 
 # %%
 model.predict(images[0])
-# %%
-
-se = SamplesEncoder()
-se._anchors._compute_dims()
-
-# %%

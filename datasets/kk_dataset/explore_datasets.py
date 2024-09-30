@@ -7,8 +7,16 @@ import tensorflow_datasets as tfds
 
 
 # %%
-ds = tfds.load("kk_dataset:1.0.1", split="train", shuffle_files=False)
+ds, info = tfds.load(
+    "kk_dataset:1.0.1", split="train", shuffle_files=False, with_info=True
+)
 print(ds)
+
+# %% Visualization
+tfds.as_dataframe(ds.take(8), info)
+# %%
+fig = tfds.show_examples(ds.take(4), info)
+
 
 # %% Iterate over a dataset
 for example in ds.take(4):  # example is `{'image': tf.Tensor, 'label': tf.Tensor}`
@@ -23,11 +31,6 @@ ds = ds.batch(32).prefetch(1)
 tfds.benchmark(ds, batch_size=32)
 tfds.benchmark(ds, batch_size=32)  # Second epoch much faster due to auto-caching
 
-# %% Visualization
-ds, info = tfds.load("kk_dataset", split="train", with_info=True)
-tfds.as_dataframe(ds.take(8), info)
-# %%
-fig = tfds.show_examples(ds.take(64), info)
 
 # %%
 import matplotlib.pyplot as plt

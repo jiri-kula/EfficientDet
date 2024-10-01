@@ -8,7 +8,11 @@ import tensorflow_datasets as tfds
 
 # %%
 ds, info = tfds.load(
-    "kk_dataset:1.0.1", split="train", shuffle_files=False, with_info=True
+    "kk_dataset:1.0.14",
+    split="train",
+    shuffle_files=False,
+    with_info=True,
+    data_dir="/home/jiri/remote_x",
 )
 print(ds)
 

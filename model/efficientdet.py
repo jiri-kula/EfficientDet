@@ -300,7 +300,7 @@ class EfficientDet(tf.keras.Model):
             # )
 
             # clf_loss = tf.reduce_sum(clf_loss, axis=-1)
-            clf_loss = negative_weight * positive_loss + positive_weight * negative_loss
+            clf_loss = 1.0 * positive_loss + 1.0 * negative_loss
             # tf.print("clf_loss:", clf_loss, output_stream="file://clf_loss.txt")
 
             box_normalizer = tf.reduce_sum(positive_mask, axis=-1)

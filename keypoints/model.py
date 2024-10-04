@@ -1,16 +1,19 @@
-#%%
+# %%
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import matplotlib.pyplot as plt
 import numpy as np
 from keras import layers
 import keras
+
 IMG_SIZE = 224
 NUM_KEYPOINTS = 5 * 2
+DATA_DIR = "/home/jiri/remote_x"  # sshfs X:/home/shared/ssd ~/remote_x
 
 # %% Visualization
 # tfds.as_dataframe(ds.take(8), info)
 # fig = tfds.show_examples(ds.take(4), info)
+
 
 # %%
 def decode_fn(sample):
@@ -22,7 +25,7 @@ def decode_fn(sample):
     # def handle_empty_boxes():
     #     return tf.zeros(
     #         (5, 4), dtype=tf.float32
-    #     ) 
+    #     )
 
     # def handle_non_empty_boxes():
     #     return gt_boxes
@@ -44,15 +47,24 @@ def decode_fn(sample):
 
     return image, kps
 
-#%%
+
+# %%
 ds = tfds.load(
-    "kp_dataset:1.0.1", split="train", shuffle_files=False, with_info=False
+    "kp_dataset:1.0.11",
+    split="train",
+    shuffle_files=False,
+    with_info=False,
+    data_dir=DATA_DIR,
 )
 
 ds = ds.map(decode_fn)
 
 dv = tfds.load(
-    "kp_dataset:1.0.0", split="train", shuffle_files=False, with_info=False
+    "kp_dataset:1.0.0",
+    split="train",
+    shuffle_files=False,
+    with_info=False,
+    data_dir=DATA_DIR,
 ).map(decode_fn)
 
 
@@ -68,10 +80,12 @@ def visualize_keypoints(images, keypoints):
         ax_all.imshow(image)
 
         current_keypoint = np.array(current_keypoint)
-        x = current_keypoint[:,:,0::2]
-        y = current_keypoint[:,:,1::2]
+        x = current_keypoint[:, :, 0::2]
+        y = current_keypoint[:, :, 1::2]
         # Since the last entry is the visibility flag, wue discard it.
-        ax_all.scatter([IMG_SIZE * x],  [IMG_SIZE *y], c='white', marker="x", s=50, linewidths=1)
+        ax_all.scatter(
+            [IMG_SIZE * x], [IMG_SIZE * y], c="white", marker="x", s=50, linewidths=1
+        )
 
     plt.tight_layout(pad=1.0)
     plt.show()
@@ -80,10 +94,11 @@ def visualize_keypoints(images, keypoints):
 images, keypoints = [], []
 
 for image, keypoint in ds.take(2):
-    images.append(image / 255.)
+    images.append(image / 255.0)
     keypoints.append(keypoint)
 
 visualize_keypoints(images, keypoints)
+
 
 # %%
 def get_model():
@@ -98,45 +113,88 @@ def get_model():
     inputs = layers.Input((IMG_SIZE, IMG_SIZE, 3))
     x = keras.applications.mobilenet_v2.preprocess_input(inputs)
     x = backbone(x)
-    x = layers.Dropout(0.3)(x)
+    print(f"Shape after backbone: {x.shape}")
 
-    # Add additional layers dynamically
-    num_additional_layers = 3
-    for _ in range(num_additional_layers):
-        x = layers.SeparableConv2D(NUM_KEYPOINTS, kernel_size=5, strides=1, activation="relu", padding="same")(x)
-    
+    x = layers.Dropout(0.5)(x)
+
     x = layers.SeparableConv2D(
-        NUM_KEYPOINTS, kernel_size=5, strides=1, activation="relu"
+        256,
+        kernel_size=7,
+        strides=1,
+        padding="same",
+        activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(0.01),
+        name="conv1",
     )(x)
+    # x = layers.SeparableConv2D(
+    #     16, kernel_size=5, strides=1, padding="same", activation="relu", name="conv2"
+    # )(x)
+    x = layers.SeparableConv2D(
+        128,
+        kernel_size=5,
+        strides=1,
+        padding="valid",
+        activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(0.01),
+        name="conv3",
+    )(x)
+
+    x = layers.Dropout(0.5)(x)
+
+    # x = layers.SeparableConv2D(
+    #     64, kernel_size=5, strides=1, padding="same", activation="relu"
+    # )(x)
+    # print(f"Shape after SeparableConv2D 64: {x.shape}")
+
+    # x = layers.SeparableConv2D(
+    #     NUM_KEYPOINTS, kernel_size=3, strides=1, activation="relu"
+    # )(x)
+    # print(f"Shape after SeparableConv2D NUM_KEYPOINTS: {x.shape}")
+
+    # Add GlobalAveragePooling2D to reduce spatial dimensions to 1x1
+    # outputs = layers.GlobalAveragePooling2D()(x)
+
+    x = layers.Dropout(0.5)(x)
+
     outputs = layers.SeparableConv2D(
-        NUM_KEYPOINTS, kernel_size=3, strides=1, activation="relu"
+        NUM_KEYPOINTS,
+        kernel_size=3,
+        strides=1,
+        activation="linear",
+        kernel_regularizer=tf.keras.regularizers.l2(0.01),
+        name="conv4",
     )(x)
+
+    print(f"Shape of outputs: {outputs.shape}")
 
     return keras.Model(inputs, outputs, name="keypoint_detector")
 
-#%%
+
+# %%
 get_model().summary()
 model = get_model()
+
 
 def custom_mse_loss(y_true, y_pred):
     # Scale y_true and y_pred from normalized range (0, 1) to pixel range
     y_true_pixels = y_true * IMG_SIZE
     y_pred_pixels = y_pred * IMG_SIZE
-    
+
     # Compute the Mean Squared Error in pixel space
     return tf.reduce_mean(tf.square(y_true_pixels - y_pred_pixels))
 
-# %%
-EPOCHS = 100
-BATCH_SIZE=128
-
-model.compile(loss=custom_mse_loss, optimizer=keras.optimizers.Adam(1e-3))
-model.fit(ds.batch(BATCH_SIZE), epochs=EPOCHS)
-
 
 # %%
-image, label = next(iter(dv.batch(2)))
+EPOCHS = 1000
+BATCH_SIZE = 64
+
+model.compile(loss=custom_mse_loss, optimizer=keras.optimizers.Adam(1e-4))
+model.fit(ds.batch(BATCH_SIZE), epochs=EPOCHS, validation_data=dv.batch(BATCH_SIZE))
+
+
+# %%
+image, label = next(iter(ds.batch(2)))
 prediction = model.predict(image)
 
-visualize_keypoints(image / 255., prediction)
+visualize_keypoints(image / 255.0, prediction)
 # %%

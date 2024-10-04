@@ -4,6 +4,8 @@ import tensorflow as tf
 import sys
 from .utils import compute_iou
 
+INPUT_SIZE = 320
+
 
 class Anchors:
     """Anchor boxes generator."""

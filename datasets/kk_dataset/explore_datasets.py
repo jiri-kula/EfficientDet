@@ -10,14 +10,14 @@ import tensorflow_datasets as tfds
 ds, info = tfds.load(
     "kk_dataset:1.0.11",
     split="train",
-    shuffle_files=True,
+    shuffle_files=False,
     with_info=True,
-    # data_dir="/home/jiri/remote_x",
+    data_dir="/home/jiri/remote_x",
 )
 print(ds)
 
 # %% Visualization
-total_samples = info.splits['train'].num_examples
+total_samples = info.splits["train"].num_examples
 middle_index = total_samples // 2
 sample_size = 10  # Number of samples you want to take from the middle
 middle_sample = ds.skip(middle_index - sample_size // 2).take(sample_size)

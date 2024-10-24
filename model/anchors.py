@@ -12,7 +12,7 @@ class Anchors:
 
     def __init__(
         self,
-        aspect_ratios=[0.8, 1.0, 1.2],
+        aspect_ratios=[1.0],
         scales=[
             0,
             1.0 / 3.0,

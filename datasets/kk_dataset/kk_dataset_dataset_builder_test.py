@@ -1,6 +1,6 @@
 """kk_dataset dataset."""
 
-from . import kk_dataset_dataset_builder
+import kk_dataset_dataset_builder
 import tensorflow_datasets as tfds
 
 
@@ -10,7 +10,7 @@ class KkDatasetTest(tfds.testing.DatasetBuilderTestCase):
     # TODO(kk_dataset):
     DATASET_CLASS = kk_dataset_dataset_builder.Builder
     SPLITS = {
-        "train": 3,  # Number of fake train example
+        "train": 13,  # Number of fake train example
         # 'test': 1,  # Number of fake test example
     }
 
@@ -23,3 +23,5 @@ class KkDatasetTest(tfds.testing.DatasetBuilderTestCase):
 
 if __name__ == "__main__":
     tfds.testing.test_main()
+
+

@@ -8,7 +8,7 @@ import tensorflow_datasets as tfds
 
 # %%
 ds, info = tfds.load(
-    "kk_dataset:1.0.11",
+    "kk_dataset:1.1.8",
     split="train",
     shuffle_files=True,
     with_info=True,

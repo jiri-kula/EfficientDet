@@ -1,10 +1,11 @@
 # %%
-from model.anchors import Anchors
+from model.anchors import Anchors, INPUT_SIZE
 import numpy as np
+
 
 # %%
 an = Anchors()
-tensor = an.get_anchors(320, 320)
+tensor = an.get_anchors(INPUT_SIZE, INPUT_SIZE)
 
 # Convert the tensor to a NumPy array
 tensor_values = tensor.numpy()
@@ -15,6 +16,7 @@ with open("anchors.txt", "w") as file:
     np.savetxt(file, tensor_values, fmt="%s")
 
 print("Tensor values have been written to anchors.txt")
+exit()
 # %%
 from model.anchors import SamplesEncoder
 import tensorflow_datasets as tfds

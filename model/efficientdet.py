@@ -80,7 +80,7 @@ class EfficientDet(tf.keras.Model):
         self.mean_angle_metric = tf.metrics.Mean(name="mean_angle_metric")
 
         self.backbone = hub.KerasLayer(
-            "https://tfhub.dev/tensorflow/efficientdet/lite1/feature-vector/1",
+            "https://tfhub.dev/tensorflow/efficientdet/lite0/feature-vector/1",
             trainable=True,
         )
 
@@ -209,8 +209,8 @@ class EfficientDet(tf.keras.Model):
         x, y_true = data
 
         # Check for NaNs in losses
-        # tf.debugging.check_numerics(x, "x contains NaN or Inf")
-        # tf.debugging.check_numerics(y_true, "y_true contains NaN or Inf")
+        # # tf.debugging.check_numerics(x, "x contains NaN or Inf")
+        # # tf.debugging.check_numerics(y_true, "y_true contains NaN or Inf")
 
         with tf.GradientTape() as tape:
             # box_preds, angle_preds, cls_preds = self(x, training=True)  # Forward pass
@@ -245,7 +245,12 @@ class EfficientDet(tf.keras.Model):
             # angle_positive_mask = tf.cast(angle_positive_mask, dtype=tf.float32)
 
             # loss for each anchor
+
+            # tf.debugging.check_numerics(cls_labels, "cls_labels contains NaN or Inf")
+            # tf.debugging.check_numerics(cls_preds, "cls_preds contains NaN or Inf")
+
             clf_loss = self.class_loss(cls_labels, cls_preds)
+
             box_loss = self.box_loss(box_labels, box_preds)
             # ang_loss = self.angle_loss(angle_labels, angle_preds)
             # ang_loss = tf.losses.MAE(angle_preds, angle_preds)
@@ -286,9 +291,16 @@ class EfficientDet(tf.keras.Model):
 
             positive_loss = tf.reduce_sum(positive_loss, axis=-1)
             negative_loss = tf.reduce_sum(negative_loss, axis=-1)
+            # tf.debugging.check_numerics(
+            #     positive_loss, "positive_loss contains NaN or Inf"
+            # )
+
+            # tf.debugging.check_numerics(
+            #     negative_loss, "negative_loss contains NaN or Inf"
+            # )
 
             # clf_loss = tf.reduce_sum(clf_loss, axis=-1)
-            clf_loss = negative_weight * positive_loss + positive_weight * negative_loss
+            clf_loss = 1.0 * positive_loss + 1.0 * negative_loss
             # tf.print("clf_loss:", clf_loss, output_stream="file://clf_loss.txt")
 
             box_normalizer = tf.reduce_sum(positive_mask, axis=-1)
@@ -296,6 +308,8 @@ class EfficientDet(tf.keras.Model):
                 tf.reduce_sum(box_loss, axis=-1), box_normalizer
             )
             # tf.print("box_loss:", box_loss, output_stream="file://box_loss.txt")
+            # tf.debugging.check_numerics(clf_loss, "clf_loss contains NaN or Inf")
+            # tf.debugging.check_numerics(box_loss, "box_loss contains NaN or Inf")
 
             # normalizer = tf.reduce_sum(angle_positive_mask, axis=-1)
             # ang_loss = tf.math.divide_no_nan(

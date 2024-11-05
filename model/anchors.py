@@ -4,17 +4,19 @@ import tensorflow as tf
 import sys
 from .utils import compute_iou
 
+INPUT_SIZE = 320
+
 
 class Anchors:
     """Anchor boxes generator."""
 
     def __init__(
         self,
-        aspect_ratios=[0.8, 1.0, 1.2],
+        aspect_ratios=[0.5, 1.0, 2.0],  # wide rectangle  # square  # tall rectangle
         scales=[
-            0,
-            1.0 / 3.0,
             2.0 / 3.0,
+            1.0,
+            4.0 / 3.0,
         ],  # WARNING: change of scales or aspect_ratios -> modify train.py num_anchors=3 parameter of the model
     ):
         """Initialize anchors generator.
@@ -26,11 +28,15 @@ class Anchors:
                 of anchor boxes on each feature level.
         """
         self._aspect_ratios = aspect_ratios
-        self._scales = [2**i for i in scales]
+        self._scales = [1.0 * scale for scale in scales]
         self._num_anchors = len(aspect_ratios) * len(scales)
 
         self._strides = [2**i for i in range(3, 8)]
-        self._areas = [i**2 for i in [24.0, 48.0, 96.0, 192.0, 384.0]]  # adaptive
+        # self._areas = [i**2 for i in [24.0, 48.0, 96.0, 192.0, 384.0]]
+        start_value = 16.0
+        length = 5
+        v = [start_value * (2**i) for i in range(length)]
+        self._areas = [i**2 for i in v]
         self._anchor_dims = self._compute_dims()
 
     def _compute_dims(self):
@@ -52,7 +58,7 @@ class Anchors:
             all_dims.append(tf.stack(level_dims, axis=0))
         return tf.stack(all_dims, axis=0)
 
-    # @tf.function
+    @tf.function
     def _get_anchors(self, feature_height, feature_width, level):
         """Get anchors for with given height and width on given level.
 
@@ -85,7 +91,7 @@ class Anchors:
         )
         return tf.concat([centers, dims], axis=-1)
 
-    # @tf.function
+    @tf.function
     def get_anchors(self, image_height, image_width):
         """Get anchors for given height and width on all levels.
 
@@ -114,6 +120,7 @@ class SamplesEncoder:
         self._box_variance = tf.cast([0.1, 0.1, 0.2, 0.2], tf.float32)
         self.anchor_boxes = None
 
+    @tf.function
     def _match_anchor_boxes(
         self, anchor_boxes, gt_boxes, match_iou=0.5, ignore_iou=0.4
     ):
@@ -146,8 +153,8 @@ class SamplesEncoder:
         box_target = box_target / self._box_variance
         return box_target
 
-    # @tf.function
-    @tf.autograph.experimental.do_not_convert
+    # @tf.autograph.experimental.do_not_convert
+    @tf.function
     def _encode_sample(self, image_shape, gt_boxes, classes, angles):
         if self.anchor_boxes is None:
             self.anchor_boxes = self._anchors.get_anchors(
@@ -163,7 +170,7 @@ class SamplesEncoder:
         box_target = self._compute_box_target(
             self.anchor_boxes, matched_gt_boxes
         )  # compute shift + scale of anchor to match 'gt box'
-        # tf.debugging.check_numerics(box_target, "box_target contains NaN or Inf")
+        tf.debugging.check_numerics(box_target, "box_target contains NaN or Inf")
 
         # tf.print("classes:", classes, output_stream=sys.stderr)
         # tf.print("angles:", angles, output_stream=sys.stderr)
@@ -183,10 +190,15 @@ class SamplesEncoder:
 
         label = tf.concat([box_target, matched_gt_angles, class_target], axis=-1)
 
-        # assert len(tf.where(class_target > -1.0)) > 0
+        # if len(classes) > 0:
+        #     assert (
+        #         len(tf.where(class_target[:, 0] > -1.0)) > 0
+        #     ), "No anchor matched to gt_boxes"
 
         return label
 
+    # @tf.autograph.experimental.do_not_convert
+    @tf.function
     def encode_batch(self, images, gt_boxes, classes, angles):
         """Encode batch for training."""
 

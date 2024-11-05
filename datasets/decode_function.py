@@ -1,8 +1,10 @@
 import tensorflow as tf
-from model.anchors import SamplesEncoder
+from model.anchors import SamplesEncoder, INPUT_SIZE
 import imgaug.augmenters as iaa
 import numpy as np
 import tensorflow_datasets as tfds
+
+DATA_DIR = "/home/jiri/remote_x"  # sshfs X:/home/shared/ssd ~/remote_x
 
 se = SamplesEncoder()
 
@@ -67,10 +69,10 @@ def decode_fn(sample):
     # image_aug.set_shape(image.shape)  # Set the shape of the augmented image
     image_aug = augment_image(image)
 
-    image_aug = tf.image.resize(image_aug, (384, 384))
+    image_aug = tf.image.resize(image_aug, (INPUT_SIZE, INPUT_SIZE))
 
     gt_boxes = sample["objects"]["bbox"]
-    gt_boxes = tf.multiply(gt_boxes, 384.0)
+    gt_boxes = tf.multiply(gt_boxes, INPUT_SIZE)
     y1, x1, y2, x2 = tf.split(gt_boxes, 4, axis=-1)
     gt_boxes = tf.concat([(x1 + x2) / 2.0, (y1 + y2) / 2.0, x2 - x1, y2 - y1], axis=-1)
 
@@ -102,13 +104,32 @@ def decode_fn(sample):
 
 # Function to concatenate multiple datasets
 def concat_datasets():
-    ds0 = tfds.load("kk_dataset:1.0.0", split="train", shuffle_files=True)
-    ds1 = tfds.load("kk_dataset:1.0.1", split="train", shuffle_files=True)
-    ds2 = tfds.load("kk_dataset:1.0.2", split="train", shuffle_files=True)
-    ds3 = tfds.load("kk_dataset:1.0.3", split="train", shuffle_files=True)
-    ds4 = tfds.load("kk_dataset:1.0.4", split="train", shuffle_files=True)
+    ds8 = tfds.load(
+        "kk_dataset:1.1.8", split="train", shuffle_files=True, data_dir=DATA_DIR
+    )
+    ds9 = tfds.load(
+        "kk_dataset:1.1.9", split="train", shuffle_files=True, data_dir=DATA_DIR
+    )
+    ds10 = tfds.load(
+        "kk_dataset:1.1.10", split="train", shuffle_files=True, data_dir=DATA_DIR
+    )
+    ds11 = tfds.load(
+        "kk_dataset:1.1.11", split="train", shuffle_files=True, data_dir=DATA_DIR
+    )
+    ds12 = tfds.load(
+        "kk_dataset:1.1.12", split="train", shuffle_files=True, data_dir=DATA_DIR
+    )
+    ds13 = tfds.load(
+        "kk_dataset:1.1.13", split="train", shuffle_files=True, data_dir=DATA_DIR
+    )
 
-    return ds0.concatenate(ds1).concatenate(ds2).concatenate(ds3).concatenate(ds4)
+    return (
+        ds8.concatenate(ds9)
+        .concatenate(ds10)
+        .concatenate(ds11)
+        .concatenate(ds12)
+        .concatenate(ds13)
+    )
 
 
 # Function to create trainig samples for the model trainig

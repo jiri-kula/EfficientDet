@@ -22,18 +22,16 @@ import datetime
 import tensorflow as tf
 from model.efficientdet import EfficientDet
 from datasets.decode_function import build_dataset
+from model.anchors import INPUT_SIZE
 
-INPUT_SIZE = 384
 TFLITE_CONVERSION = args.tflite_conversion  # Use the parsed argument
 EAGERLY = False
 NUM_CLASSES = 2
-BATCH_SIZE = 4 if EAGERLY else 8
+BATCH_SIZE = 4 if EAGERLY else 16
 EPOCHS = 50
-VAR_FREEZE_EXPR = (
-    None  # "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
-)
+VAR_FREEZE_EXPR = "efficientnet-lite0"  # "efficientnet-lite0|resample_p6|fpn_cells"
 
-checkpoint_dir = "checkpoints/v_ds4_var_none"
+checkpoint_dir = "checkpoints/ds_8_9_10_11_12_13_backbone_one_aspect"
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 tf.get_logger().setLevel("ERROR")
@@ -45,7 +43,7 @@ train_data = build_dataset(BATCH_SIZE)
 model = EfficientDet(
     channels=64,
     num_classes=NUM_CLASSES,
-    num_anchors=9,  # num_scales * mum_aspects
+    num_anchors=3,  # num_scales * mum_aspects
     bifpn_depth=3,
     heads_depth=3,
     name="efficientdet_d0",
@@ -57,7 +55,7 @@ print("var_freeze_expr: ", model.var_freeze_expr)
 
 print("model compilation", end=" ")
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
     # optimizer=tf.keras.optimizers.SGD(learning_rate=0.001, momentum=0.9),
     loss=None,
     run_eagerly=EAGERLY,

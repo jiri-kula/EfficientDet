@@ -9,8 +9,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
-import tensorflow_datasets as tfds
 from tqdm import tqdm
+
+from datasets.decode_function import concat_datasets
+from model.anchors import INPUT_SIZE
 
 
 # %%
@@ -18,6 +20,10 @@ def analyze_bounding_boxes(ds):
     # Initialize min and max bounding box dimensions
     min_bbox = [float("inf"), float("inf")]
     max_bbox = [float("-inf"), float("-inf")]
+
+    # Initialize min and max aspect ratios
+    min_aspect_ratio = float("inf")
+    max_aspect_ratio = float("-inf")
 
     # Iterate over the dataset
     for i, example in enumerate(tqdm(ds)):
@@ -29,6 +35,9 @@ def analyze_bounding_boxes(ds):
             width = xmax - xmin
             height = ymax - ymin
 
+            # Calculate aspect ratio
+            aspect_ratio = width / height
+
             # Update min and max dimensions
             if width < min_bbox[0]:
                 min_bbox[0] = width
@@ -39,18 +48,31 @@ def analyze_bounding_boxes(ds):
             if height > max_bbox[1]:
                 max_bbox[1] = height
 
+            # Update min and max aspect ratios
+            if aspect_ratio < min_aspect_ratio:
+                min_aspect_ratio = aspect_ratio
+            if aspect_ratio > max_aspect_ratio:
+                max_aspect_ratio = aspect_ratio
+
     # Output the results
-    print(f"Minimum bounding box dimensions: {320 * np.array(min_bbox)}")
-    print(f"Maximum bounding box dimensions: {320 * np.array(max_bbox)}")
+    min_bbox = INPUT_SIZE * np.array(min_bbox)
+    max_bbox = INPUT_SIZE * np.array(max_bbox)
+    print(
+        "Minimum bounding box width: {:.2f}, height: {:.2f}".format(
+            min_bbox[0], min_bbox[1]
+        )
+    )
+    print(
+        "Maximum bounding box width: {:.2f}, height {:.2f}".format(
+            max_bbox[0], max_bbox[1]
+        )
+    )
+    print("Minimum aspect ratio: {:.2f}".format(min_aspect_ratio))
+    print("Maximum aspect ratio: {:.2f}".format(max_aspect_ratio))
 
 
 # Example usage
 
-ds0 = tfds.load("kk_dataset:1.0.0", split="train", shuffle_files=True)
-ds1 = tfds.load("kk_dataset:1.0.1", split="train", shuffle_files=True)
-ds2 = tfds.load("kk_dataset:1.0.2", split="train", shuffle_files=True)
-ds = ds0.concatenate(ds1.concatenate(ds2))
-
-analyze_bounding_boxes(ds0)
+analyze_bounding_boxes(concat_datasets())
 
 # %%

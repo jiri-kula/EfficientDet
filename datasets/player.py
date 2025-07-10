@@ -9,7 +9,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-
 def load_and_display_dataset(dataset_name):
     # Load the dataset
     dataset, info = tfds.load(dataset_name, with_info=True, split="train")

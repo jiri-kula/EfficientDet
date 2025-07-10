@@ -11,9 +11,6 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": [
-        "${env:HOME}/output_512/annotation.csv"
-      ]
     },
     {
       "name": "Python: Current File As Module",

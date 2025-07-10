@@ -13,8 +13,10 @@ import adaptive_strategy
 class Builder(tfds.core.GeneratorBasedBuilder):
     """DatasetBuilder for kk_dataset dataset."""
 
-    VERSION = tfds.core.Version("1.3.22")
+    VERSION = tfds.core.Version("1.4.25")
     RELEASE_NOTES = {
+        "1.4.25": "Contains HD datasets 25, no validation, morning sunlight, overexposed.",
+        "1.4.23": "Contains HD datasets 23 as train, 24 as validation.",
         "1.3.22": "Contains datasets 21 as train, 22 as validation.",
         "1.3.21": "Contains datasets 21 as train, 20 as validation, 17 as test.",
         "1.2.3": "Contains datasets 17. Arch 1, variable ETime, bbox fits",
@@ -68,10 +70,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         # TODO(kk_dataset): Returns the Dict[split names, Iterator[Key, Example]]
         return {
             "train": self._generate_examples(
-                path="/mnt/c/local/tmp/detector_dataset_21/annotation.csv"
-            ),
-            "validation": self._generate_examples(
-                path="/mnt/c/local/tmp/detector_dataset_21/annotation.csv"
+                path="/mnt/c/local/tmp/detector_dataset_25_hd/annotation.csv"
             )
         }
 
